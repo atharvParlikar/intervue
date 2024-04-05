@@ -2,6 +2,7 @@ import express, { Request, Response } from "express";
 import http from "http";
 import cors from "cors";
 import { Socket, Server as SocketServer } from "socket.io";
+import { spawn } from "child_process";
 
 const app = express();
 const PORT = 3000;
@@ -9,6 +10,7 @@ const PORT = 3000;
 const server = new http.Server(app);
 
 app.use(cors());
+app.use(express.json());
 
 const io = new SocketServer(server, {
   cors: {
@@ -52,10 +54,36 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("editor-val", (val: string) => {
-    console.log("Editor-val: ", val);
     const room = rooms[roomsInverse[socket.id]];
     const otherPeer = room.filter((id: string) => id !== socket.id)[0];
     io.to(otherPeer).emit("editor-val", val);
+  });
+
+  socket.on("run-code", (code: string) => {
+    let output = "";
+
+    const pythonProcess = spawn("docker", [
+      "run",
+      "python",
+      "python",
+      "-c",
+      code,
+    ]);
+
+    pythonProcess.stdout.on("data", (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.on("close", (code) => {
+      console.log("Python process exited with code", code);
+      console.log("Output:", output);
+
+      const room = rooms[roomsInverse[socket.id]];
+
+      room.forEach((id: string) =>
+        io.to(id).emit("output", JSON.stringify({ code, output })),
+      );
+    });
   });
 
   socket.on("debug", () => {

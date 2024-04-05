@@ -1,24 +1,16 @@
-// TODO:
-// Look at why the fuck is dataChannel not open even tho
-// video is getting streamed pretty well.
-
-// NOTES:
-// ideal: (create offer -> set local -> set remote -> create answer -> set local -> set remote)
-// mine: ()
-
 import "../App.css";
 import { useContext, useEffect, useRef, useState } from "react";
 import { socketContext } from "../socket";
 
-function WebRTCVideoCall() {
-  const [isConnected, setIsConnected] = useState<boolean>(false);
+function WebRTCVideoCall({ room }: { room: string }) {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localConnection = useRef<RTCPeerConnection | null>(null);
   const remoteStream = new MediaStream();
   const dataChannel = useRef<RTCDataChannel | null>(null);
-  const [hideSelf, setHideSelf] = useState(true);
+  const hideSelf = true;
   const socket = useContext(socketContext);
+  const [isConnected, setIsConnected] = useState(false);
 
   const iceServers = {
     iceServers: [
@@ -66,13 +58,13 @@ function WebRTCVideoCall() {
 
     if (!isConnected) {
       socket.connect();
-      setIsConnected(true);
-      socket.emit("room", "1");
+      socket.emit("room", room);
     }
   }, []);
 
   socket.on("connect", () => {
     console.log("Socket connected");
+    setIsConnected(true);
 
     // when you get offer from other peer
     socket.on("offer", async (offer: string) => {

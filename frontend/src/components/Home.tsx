@@ -5,18 +5,32 @@ import { Input } from "./ui/input";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
 import { useUser } from "@clerk/clerk-react";
+import { useState } from "react";
 
 function Home() {
   const createRoom = () => {
     const roomID = v4();
-    window.location.replace("http://localhost:5173/room/" + roomID);
-    navigator.clipboard.writeText(roomID);
+    navigator.clipboard.writeText(roomID).then(() => {
+      window.location.replace("http://localhost:5173/room/" + roomID);
+    });
+  };
+
+  const joinRoom = () => {
+    window.location.replace("http://localhost:5173/room/" + code);
   };
 
   const { isSignedIn, user, isLoaded } = useUser();
+  const [code, setCode] = useState("");
 
-  if (isLoaded) return null;
-  if (!isSignedIn) window.location.replace("http://localhost:5173/sign-in");
+  if (isLoaded) {
+    console.log("Loaded");
+    if (!isSignedIn) {
+      console.log("Redirecting");
+      window.location.replace("http://localhost:5173/sign-in");
+    }
+  } else {
+    return null;
+  }
 
   return (
     <SignedIn>
@@ -25,7 +39,7 @@ function Home() {
           <h1 className="font-thin text-3xl">Say hi to the camera ✨</h1>
           <Webcam className="rounded-lg w-full border-4 border-black drop-shadow-xl videoElement" />
           <div className="mt-2 flex">
-            <Button className="mr-3" onClick={joinRoom}>
+            <Button className="mr-3" onClick={createRoom}>
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="16"
@@ -42,8 +56,12 @@ function Home() {
             </Button>
 
             <div className="flex w-full max-w-sm items-center space-x-2">
-              <Input placeholder="Code" />
-              <Button onClick={() => {}}>
+              <Input
+                onChange={(e) => setCode(e.target.value)}
+                value={code}
+                placeholder="Code"
+              />
+              <Button onClick={joinRoom}>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="16"

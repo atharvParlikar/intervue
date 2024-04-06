@@ -1,8 +1,8 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
-import { tokyoNight } from "@uiw/codemirror-theme-tokyo-night";
 import { useCallback, useState, useRef, useEffect, useContext } from "react";
 import { socketContext } from "../socket";
+import { materialLight } from "@ddietr/codemirror-themes/material-light";
 import { Button } from "./ui/button";
 
 function Editor() {
@@ -31,7 +31,10 @@ function Editor() {
   // background : bg-[#1a1b26]
 
   return (
-    <div className="h-full rounded-lg bg-[#1a1b26] p-1" ref={parentRef}>
+    <div
+      className="h-full rounded-lg bg-[#fafafa] p-1 border-4 border-gray-300 drop-shadow-xl"
+      ref={parentRef}
+    >
       <div className="flex w-full justify-end">
         <Button
           onClick={() => {
@@ -46,8 +49,8 @@ function Editor() {
         value={value}
         extensions={[python()]}
         onChange={changeValue}
-        theme={tokyoNight}
-        height={`${parentHeight - 8}px`}
+        theme={materialLight}
+        height={`${parentHeight - 50}px`}
       />
     </div>
   );

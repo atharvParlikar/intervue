@@ -136,7 +136,7 @@ function WebRTCVideoCall({ room }: { room: string }) {
 
   return (
     <>
-      <div className="flex h-full justify-center">
+      <div className="flex h-full justify-center drop-shadow-lg">
         <div className={hideSelf ? "hidden" : ""}>
           <video
             className="videoElement h-full"

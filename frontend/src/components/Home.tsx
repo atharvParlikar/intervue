@@ -8,18 +8,16 @@ import { useUser } from "@clerk/clerk-react";
 import { useState } from "react";
 
 function Home() {
-  const createRoom = () => {
-    const roomID = v4();
-    navigator.clipboard.writeText(roomID).then(() => {
-      window.location.replace("http://localhost:5173/room/" + roomID);
-    });
+  const createRoom = async () => {
+    const roomId = v4();
+    joinRoom(roomId);
   };
 
-  const joinRoom = () => {
-    window.location.replace("http://localhost:5173/room/" + code);
+  const joinRoom = (roomId: string) => {
+    window.location.replace("http://localhost:5173/room/" + roomId);
   };
 
-  const { isSignedIn, user, isLoaded } = useUser();
+  const { isSignedIn, isLoaded } = useUser();
   const [code, setCode] = useState("");
 
   if (isLoaded) {

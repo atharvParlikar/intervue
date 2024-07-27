@@ -1,8 +1,10 @@
 import "../App.css";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { socketContext } from "../socket";
+import { useUser } from "@clerk/clerk-react";
+import { Button } from "./ui/button";
 
-function WebRTCVideoCall({ room }: { room: string }) {
+function WebRTCVideoCall() {
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const localConnection = useRef<RTCPeerConnection | null>(null);
@@ -10,7 +12,7 @@ function WebRTCVideoCall({ room }: { room: string }) {
   const dataChannel = useRef<RTCDataChannel | null>(null);
   const hideSelf = true;
   const socket = useContext(socketContext);
-  const [isConnected, setIsConnected] = useState(false);
+  const { user } = useUser(); // we know user is signed because we check it in its parent component
 
   const iceServers = {
     iceServers: [
@@ -33,7 +35,6 @@ function WebRTCVideoCall({ room }: { room: string }) {
             console.log("track kind: ", track.kind);
             localConnection.current?.addTrack(track, stream);
           });
-          connect();
         }
 
         if (localConnection.current !== null) {
@@ -47,7 +48,6 @@ function WebRTCVideoCall({ room }: { room: string }) {
           }
         }
       });
-
     const localConnection_ = new RTCPeerConnection(iceServers);
     localConnection.current = localConnection_;
     const dataChannel_ = localConnection_.createDataChannel("channel");
@@ -55,16 +55,11 @@ function WebRTCVideoCall({ room }: { room: string }) {
       console.log("Connection open!");
     };
     dataChannel.current = dataChannel_;
-
-    if (!isConnected) {
-      socket.connect();
-      socket.emit("room", room);
-    }
+    socket.emit("connectionReady", user?.primaryEmailAddress?.emailAddress);
   }, []);
 
-  socket.on("connect", () => {
+  if (socket.connected) {
     console.log("Socket connected");
-    setIsConnected(true);
 
     // when you get offer from other peer
     socket.on("offer", async (offer: string) => {
@@ -72,7 +67,13 @@ function WebRTCVideoCall({ room }: { room: string }) {
         ?.setRemoteDescription(new RTCSessionDescription(JSON.parse(offer)))
         .then(async () => {
           const answer = await createAnswer();
-          socket.emit("answer", JSON.stringify(answer));
+          socket.emit(
+            "answer",
+            JSON.stringify({
+              answer,
+              email: user?.primaryEmailAddress?.emailAddress,
+            }),
+          );
         })
         .catch((err) => console.error(err));
     });
@@ -86,7 +87,11 @@ function WebRTCVideoCall({ room }: { room: string }) {
         .then(() => console.log("Answer set successfully"))
         .catch((err) => console.error(err));
     });
-  });
+
+    socket.on("connectionReady", () => {
+      connect();
+    });
+  }
 
   const createOffer = () => {
     return new Promise((resolve) => {
@@ -131,7 +136,10 @@ function WebRTCVideoCall({ room }: { room: string }) {
   const connect = async () => {
     const offer = await createOffer();
     console.log(localConnection.current?.connectionState);
-    socket.emit("offer", JSON.stringify(offer));
+    socket.emit(
+      "offer",
+      JSON.stringify({ offer, email: user?.primaryEmailAddress?.emailAddress }),
+    );
   };
 
   return (

@@ -9,7 +9,7 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="room/:roomID" element={<Room />} />
+        <Route path="room/:roomId" element={<Room />} />
         <Route path="/" element={<Home />} />
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/sign-up" element={<SignUpPage />} />

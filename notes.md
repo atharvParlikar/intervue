@@ -10,6 +10,7 @@
 - [ ] Switch between your video and other users video
 - [ ] Fluid windows (Editor/Output/WebRTCVideo)
 - [ ] Change room uuid a little shorter
+- [ ] Start using useMemo for caching token
 
 ## Vague or Unclear
 - [ ] Cursor User Identity (doing)

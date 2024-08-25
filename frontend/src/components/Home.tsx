@@ -1,24 +1,42 @@
 import Webcam from "react-webcam";
 import { Button } from "./ui/button";
-import { v4 } from "uuid";
 import { Input } from "./ui/input";
+import { ToastContainer, toast } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useAuth } from "@clerk/clerk-react";
 import { useState } from "react";
+import axios from 'axios';
 
 function Home() {
+  const { isSignedIn, isLoaded } = useUser();
+  const [code, setCode] = useState("");
+  const { getToken } = useAuth();
+
+
+  const generateRandomId = (): string => {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let id = '';
+    for (let i = 0; i < 4; i++) {
+      id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return id;
+  }
+
   const createRoom = async () => {
-    const roomId = v4();
-    joinRoom(roomId);
+    const roomId = generateRandomId();
+    const response = await axios.post("http://localhost:3000/createRoom", { roomId, token: await getToken({ template: "user" }) });
+
+    if (response.status === 201) {
+      joinRoom(roomId);
+    } else {
+      toast("Internal Server error", { type: "error", pauseOnHover: false });
+    }
   };
 
   const joinRoom = (roomId: string) => {
     window.location.replace("http://localhost:5173/room/" + roomId);
   };
-
-  const { isSignedIn, isLoaded } = useUser();
-  const [code, setCode] = useState("");
 
   if (isLoaded) {
     console.log("Loaded");
@@ -75,6 +93,7 @@ function Home() {
             </div>
           </div>
         </div>
+        <ToastContainer />
       </div>
     </SignedIn>
   );

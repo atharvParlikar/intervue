@@ -13,6 +13,7 @@ function WebRTCVideoCall() {
   const hideSelf = true;
   const socket = useContext(socketContext);
   const { user } = useUser(); // we know user is signed because we check it in its parent component
+  const isChannelSet = useRef<boolean>(false);
 
   const iceServers = {
     iceServers: [
@@ -26,43 +27,106 @@ function WebRTCVideoCall() {
   };
 
   useEffect(() => {
-    navigator.mediaDevices
-      .getUserMedia({ audio: true, video: true })
-      .then((stream: MediaStream) => {
+    let localStream: MediaStream | null = null;
+
+    const setupMediaAndConnection = async () => {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+
+        console.log("localvideoRef: ", localVideoRef);
+
         if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-          stream.getTracks().forEach((track) => {
-            console.log("track kind: ", track.kind);
-            localConnection.current?.addTrack(track, stream);
-          });
+          localVideoRef.current.srcObject = localStream;
         }
 
-        if (localConnection.current !== null) {
-          localConnection.current.ontrack = (event) => {
-            event.streams[0].getTracks().forEach((track) => {
-              remoteStream.addTrack(track);
-            });
-          };
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream;
-          }
+        const localConnection_ = new RTCPeerConnection(iceServers);
+        localConnection.current = localConnection_;
+
+        localStream.getTracks().forEach((track) => {
+          localConnection_?.addTrack(track, localStream!);
+        });
+
+        localConnection_.ontrack = (event) => {
+          event.streams[0].getTracks().forEach((track) => {
+            remoteStream.addTrack(track);
+          });
+        };
+
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream;
         }
-      });
-    const localConnection_ = new RTCPeerConnection(iceServers);
-    localConnection.current = localConnection_;
-    const dataChannel_ = localConnection_.createDataChannel("channel");
-    dataChannel_.onopen = () => {
-      console.log("Connection open!");
+
+        const dataChannel_ = localConnection_.createDataChannel("channel");
+        dataChannel_.onopen = () => console.log("Connection open!");
+        dataChannel.current = dataChannel_;
+
+        isChannelSet.current = true;
+      } catch (error) {
+        console.error("Error setting up media and connection:", error);
+      }
     };
-    dataChannel.current = dataChannel_;
-    socket.emit("connectionReady", user?.primaryEmailAddress?.emailAddress);
+
+    setupMediaAndConnection();
+
+    return () => {
+      localStream?.getTracks().forEach((track) => track.stop());
+      localConnection.current?.close();
+      dataChannel.current?.close();
+    };
   }, []);
+
+  useEffect(() => {
+    if (isChannelSet) {
+      socket.emit("connectionReady", user?.primaryEmailAddress?.emailAddress);
+    }
+  }, [isChannelSet]);
+
+  // useEffect(() => {
+  //   navigator.mediaDevices
+  //     .getUserMedia({ audio: true, video: true })
+  //     .then((stream: MediaStream) => {
+  //       if (localVideoRef.current) {
+  //         localVideoRef.current.srcObject = stream;
+  //         stream.getTracks().forEach((track) => {
+  //           console.log("track kind: ", track.kind);
+  //           localConnection.current?.addTrack(track, stream);
+  //         });
+  //         setIsChannelSet(true);
+  //       }
+
+  //       if (localConnection.current !== null) {
+  //         localConnection.current.ontrack = (event) => {
+  //           event.streams[0].getTracks().forEach((track) => {
+  //             remoteStream.addTrack(track);
+  //           });
+  //         };
+  //         if (remoteVideoRef.current) {
+  //           remoteVideoRef.current.srcObject = remoteStream;
+  //         }
+  //       }
+  //     });
+  //   const localConnection_ = new RTCPeerConnection(iceServers);
+  //   localConnection.current = localConnection_;
+  //   const dataChannel_ = localConnection_.createDataChannel("channel");
+  //   dataChannel_.onopen = () => {
+  //     console.log("Connection open!");
+  //   };
+  //   dataChannel.current = dataChannel_;
+  // }, []);
+
+  // useEffect(() => {
+  //   socket.emit("connectionReady", user?.primaryEmailAddress?.emailAddress);
+  // }, [isChannelSet]);
 
   if (socket.connected) {
     console.log("Socket connected");
 
     // when you get offer from other peer
     socket.on("offer", async (offer: string) => {
+      console.log("got offer");
       localConnection.current
         ?.setRemoteDescription(new RTCSessionDescription(JSON.parse(offer)))
         .then(async () => {
@@ -74,23 +138,30 @@ function WebRTCVideoCall() {
               email: user?.primaryEmailAddress?.emailAddress,
             }),
           );
+          console.log("sent answer");
         })
         .catch((err) => console.error(err));
     });
 
     // when you get answer from other peer
     socket.on("answer", (answer: string) => {
-      console.log("Answer", answer);
-
+      console.log("got answer");
       localConnection.current
         ?.setRemoteDescription(new RTCSessionDescription(JSON.parse(answer)))
         .then(() => console.log("Answer set successfully"))
         .catch((err) => console.error(err));
     });
 
-    socket.on("connectionReady", () => {
-      connect();
+    socket.on("connectionReady", (shouldConnect) => {
+      console.log("[GOT PINGED] connectionReady");
+      console.log("shouldConnect: ", shouldConnect);
+      if (shouldConnect) {
+        console.log("connecting through webrtc");
+        connect();
+      }
     });
+
+    socket.on("disconnectedWebRTC", () => handleDisconnection());
   }
 
   const createOffer = () => {
@@ -99,6 +170,7 @@ function WebRTCVideoCall() {
         ?.createOffer()
         .then((offer) => {
           localConnection.current?.setLocalDescription(offer);
+          console.log("offer: ", offer);
         })
         .then(() => console.log("offer set successfully!"));
 
@@ -134,12 +206,47 @@ function WebRTCVideoCall() {
   };
 
   const connect = async () => {
+    console.log("connect() initiated");
     const offer = await createOffer();
     console.log(localConnection.current?.connectionState);
     socket.emit(
       "offer",
       JSON.stringify({ offer, email: user?.primaryEmailAddress?.emailAddress }),
     );
+  };
+
+  const handleDisconnection = () => {
+    console.log("Disconnected.");
+
+    // Close the existing peer connection
+    if (localConnection.current) {
+      localConnection.current.close();
+    }
+
+    // Recreate the peer connection
+    const newConnection = new RTCPeerConnection(iceServers);
+    localConnection.current = newConnection;
+
+    // Re-add tracks
+    if (
+      localVideoRef.current &&
+      localVideoRef.current.srcObject instanceof MediaStream
+    ) {
+      localVideoRef.current.srcObject.getTracks().forEach((track) => {
+        newConnection.addTrack(
+          track,
+          localVideoRef.current!.srcObject as MediaStream,
+        );
+      });
+    }
+
+    // Recreate data channel
+    const newDataChannel = newConnection.createDataChannel("channel");
+    newDataChannel.onopen = () => {
+      console.log("Connection re-established!");
+      setIsConnected(true);
+    };
+    dataChannel.current = newDataChannel;
   };
 
   return (

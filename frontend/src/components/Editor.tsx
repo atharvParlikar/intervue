@@ -4,12 +4,14 @@ import { useCallback, useState, useRef, useEffect, useContext } from "react";
 import { socketContext } from "../socket";
 import { materialLight } from "@ddietr/codemirror-themes/material-light";
 import { Button } from "./ui/button";
+import { useUser } from "@clerk/clerk-react";
 
 function Editor() {
   const [value, setValue] = useState<string>("");
   const parentRef = useRef<HTMLDivElement>(null);
   const [parentHeight, setParentHeight] = useState(0);
   const socket = useContext(socketContext);
+  const { user } = useUser();
 
   useEffect(() => {
     if (parentRef.current) {
@@ -25,7 +27,13 @@ function Editor() {
   const changeValue = useCallback((val: string) => {
     setValue(val);
     console.log(val);
-    socket.emit("editor-val", val);
+    socket.emit(
+      "editor-val",
+      JSON.stringify({
+        val,
+        email: user?.primaryEmailAddress?.emailAddress,
+      }),
+    );
   }, []);
 
   // background : bg-[#1a1b26]
@@ -38,7 +46,13 @@ function Editor() {
       <div className="flex w-full justify-end">
         <Button
           onClick={() => {
-            socket.emit("run-code", value);
+            socket.emit(
+              "run-code",
+              JSON.stringify({
+                email: user?.primaryEmailAddress?.emailAddress,
+                code: value,
+              }),
+            );
           }}
           variant={"secondary"}
         >

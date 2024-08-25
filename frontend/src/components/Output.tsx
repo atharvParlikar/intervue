@@ -16,8 +16,6 @@ export default function Output() {
 
   const lines = output.output.split("\n");
 
-  console.log(lines);
-
   return (
     <div className="h-full w-full rounded-lg bg-slate-900 font-mono text-gray-200 p-3 flex drop-shadow-lg">
       <div className="mr-3 h-fit">{"out$"}</div>

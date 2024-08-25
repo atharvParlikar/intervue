@@ -216,9 +216,10 @@ io.on("connection", (socket: Socket) => {
 
       console.log("found := ", found);
 
-      if (found === null) {
+      if (!found) {
+        console.log('should update participant socket id');
         await Room.findOneAndUpdate(
-          { "participant": socket.id },
+          { "participant.socketId": socket.id },
           { $set: { "participant.socketId": "" } },
           { new: true }
         );
@@ -290,8 +291,14 @@ app.post("/set-socket", async (req: Request, res: Response) => {
 
   try {
     if (inverseRoom) {
-      console.log("Got here host");
-      await Room.updateOne({ roomId }, { $set: { "host.socketId": socketId } });
+      if (await Room.findOne({ "host.email": email })) {
+        console.log("Host is trying to reconnect")
+        await Room.updateOne({ roomId }, { $set: { "host.socketId": socketId } });
+      }
+      else {
+        console.log("Participant is trying to reconnect")
+        await Room.updateOne({ roomId }, { $set: { "participant.socketId": socketId } });
+      }
 
       res.status(200).json({
         message: "socket id set successfully",

@@ -16,7 +16,6 @@ function Room() {
   const { roomId } = useParams();
   const { getToken } = useAuth();
   const socket = useContext(socketContext);
-  const [joinSuccess, setJoinSuccess] = useState(false);
   const [renderVideo, setRenderVideo] = useState(false);
   const userType = useRef<string | null>(null)
 
@@ -36,7 +35,6 @@ function Room() {
 
     if (res.status === 200) {
       toast("SocketID set in db successfully.", { type: "success" });
-      setJoinSuccess(true);
       userType.current = res.data.userType;
       setRenderVideo(true);
     } else {
@@ -47,15 +45,6 @@ function Room() {
   useEffect(() => {
     socket.on("connect", () => {
       setSocket();
-
-      socket.on("createSuccess", () => {
-        setJoinSuccess(true);
-      });
-
-      socket.on("joinSuccess", () => {
-        console.log("joined successfully");
-        setJoinSuccess(true);
-      });
 
       socket.on("notify", (userObject: string) => {
         console.log("notify called");
@@ -101,24 +90,20 @@ function Room() {
 
   return (
     <SignedIn>
-      {joinSuccess || renderVideo ? (
-        <div className="grid h-screen grid-cols-5 grid-rows-5 gap-4 p-3">
-          <div className="col-span-3 row-span-5 rounded-md">
-            <div>{socket.id}</div>
-            <Editor />
-          </div>
-          <div className="col-span-2 col-start-4 row-span-3 rounded-md bg-blue-300">
-            <Output />
-          </div>
-          <div className="col-span-2 col-start-4 row-span-2 row-start-4 rounded-md bg-green-300">
-            {(renderVideo && userType.current) &&
-              <VideoCall userType={userType.current} />
-            }
-          </div>
+      <div className="grid h-screen grid-cols-5 grid-rows-5 gap-4 p-3">
+        <div className="col-span-3 row-span-5 rounded-md">
+          <div>{socket.id}</div>
+          <Editor />
         </div>
-      ) : (
-        <div>Waiting to join...</div>
-      )}
+        <div className="col-span-2 col-start-4 row-span-3 rounded-md bg-blue-300">
+          <Output />
+        </div>
+        <div className="col-span-2 col-start-4 row-span-2 row-start-4 rounded-md bg-green-300">
+          {(renderVideo && userType.current) &&
+            <VideoCall userType={userType.current} />
+          }
+        </div>
+      </div>
       <ToastContainer />
     </SignedIn>
   );

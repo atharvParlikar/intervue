@@ -89,7 +89,7 @@ function VideoCall({ userType }: props) {
   return (
     <>
       <div className="flex h-full justify-center drop-shadow-lg">
-        <div className={hideSelf ? "hidden" : ""}>
+        <div className={!hideSelf ? "hidden" : ""}>
           <video
             className="videoElement h-full"
             ref={localVideoRef}

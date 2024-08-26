@@ -85,22 +85,46 @@ io.on("connection", (socket: Socket) => {
     const email = jwt.email as string;
 
     console.log("got connectionReady from ", socket.id);
-    const roomId = (await RoomsInverse.findOne({ email }))?.roomId;
+    const inverseRoom = (await RoomsInverse.findOne({ email }));
+    if (!inverseRoom) return;
+
+    const roomId = inverseRoom.roomId;
+    const userType = inverseRoom.userType;
+
     if (!roomId) {
       console.log("[connectionReady] could not find room");
       return;
     }
 
     const room = await Room.findOne({ roomId });
-    const host = room?.host.socketId;
-    if (!host) {
-      console.log("[connectionReady] could not find host roomId");
-      return;
+    if (!room) return;
+
+    if (userType === "participant") {
+      const host = room?.host.socketId;
+
+      if (!host) return;
+      if (host.length < 0) {
+        console.log("[connectionReady] could not find host roomId");
+        return;
+      } else {
+        console.log("[connectionReady] host found ", host);
+        io.to(host).emit("connectionReady", peerId);
+        return;
+      }
+    } else {
+      const participant = room?.participant?.socketId;
+
+      if (!participant) return;
+      if (participant.length < 0) {
+        console.log("[connectionReady] could not find participant roomId");
+        return;
+      } else {
+        console.log("[connectionReady] participant found ", participant);
+        io.to(participant).emit("connectionReady", peerId);
+        return;
+      }
+
     }
-
-    console.log("[connectionReady] host found ", host);
-
-    io.to(host).emit("connectionReady", peerId);
   });
 
   socket.on("offer", async (offerObject: string) => {
@@ -217,11 +241,12 @@ io.on("connection", (socket: Socket) => {
       console.log("found := ", found);
 
       if (found === null) {
-        await Room.findOneAndUpdate(
+        const found = await Room.findOneAndUpdate(
           { "participant": socket.id },
           { $set: { "participant.socketId": "" } },
           { new: true }
         );
+        console.log(found);
       }
 
       console.log("socketId deleted");
@@ -273,6 +298,58 @@ app.post("/createRoom", async (req: Request, res: Response) => {
   }
 });
 
+app.post("/joinRoom", async (req: Request, res: Response) => {
+  const { roomId, token } = req.body;
+
+  const room = await Room.findOne({ roomId });
+
+  if (!room || !room.participant) {
+    res.status(409).json({
+      message: "room is full"
+    })
+  }
+
+  try {
+    const jwt = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+
+    const email = jwt.email as string;
+    const firstName = jwt.firstName as string;
+
+    const participant = {
+      email,
+      firstName,
+    };
+
+    try {
+      await Room.findOneAndUpdate({ roomId }, { participant }, { new: true, upsert: false });
+
+      const newRoomInverse = new RoomsInverse({
+        email,
+        roomId,
+        userType: "participant"
+      });
+
+      await newRoomInverse.save();
+      console.log("roomInverse saved in database");
+
+      res.status(201).json({
+        message: "Room created successfully",
+        room: roomId,
+      });
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ message: "Internal Server Error" });
+    }
+  } catch (e) {
+    console.error(e);
+    res.status(401).json({
+      message: "token invalid"
+    });
+  }
+});
+
 app.post("/set-socket", async (req: Request, res: Response) => {
   console.log("[POST] /set-socket called");
 
@@ -283,13 +360,12 @@ app.post("/set-socket", async (req: Request, res: Response) => {
   });
 
   const email = jwt.email as string;
-  const firstName = jwt.firstName as string;
 
   const inverseRoom = await RoomsInverse.findOne({ email });
   const roomId = inverseRoom !== null ? inverseRoom.roomId : roomId_;
 
   try {
-    if (inverseRoom) {
+    if (inverseRoom?.userType === "host") {
       console.log("Got here host");
       await Room.updateOne({ roomId }, { $set: { "host.socketId": socketId } });
 
@@ -297,35 +373,34 @@ app.post("/set-socket", async (req: Request, res: Response) => {
         message: "socket id set successfully",
         userType: "host"
       });
-    } else {
+    } else if (inverseRoom?.userType === "participant") {
       console.log("Got here participant");
-      const participant = {
-        email,
-        firstName,
-        socketId
-      }
+      await Room.updateOne({ roomId }, { $set: { "participant.socketId": socketId } });
 
-      try {
-        await Room.findOneAndUpdate({ roomId }, { participant }, { new: true, upsert: false });
-        const participantRoomInverse = new RoomsInverse({
-          email,
-          roomId,
-          userType: "participant"
-        });
-        await participantRoomInverse.save();
-        console.log("set successfully");
-        res.status(200).json({
-          message: "socket id set successfully",
-          userType: 'participant'
-        });
-      } catch (err) {
-        console.error("error: ", err);
-      }
+      res.status(200).json({
+        message: "socket id set successfully",
+        userType: "participant"
+      });
     }
-
   } catch {
     res.status(500).json({
       message: "socket id set failed",
+    });
+  }
+});
+
+app.post("/verify_host", async (req: Request, res: Response) => {
+  const { token } = req.body;
+  const jwt = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+  const email = jwt.email as string;
+  const room = await RoomsInverse.findOne({ email });
+  if (room) {
+    res.status(200).json({
+      isHost: true
+    });
+  } else {
+    res.status(200).json({
+      isHost: false
     });
   }
 });

@@ -101,7 +101,7 @@ function Room() {
 
   return (
     <SignedIn>
-      {joinSuccess ? (
+      {joinSuccess || renderVideo ? (
         <div className="grid h-screen grid-cols-5 grid-rows-5 gap-4 p-3">
           <div className="col-span-3 row-span-5 rounded-md">
             <div>{socket.id}</div>

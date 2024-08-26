@@ -75,16 +75,14 @@ function VideoCall({ userType }: props) {
   }, [socket]);
 
   useEffect(() => {
-    if (userType === "participant") {
-      if (socket.connected && peerId.length > 0) {
-        console.log("sending connectionReady with peerId: ", peerId);
-        getToken({ template: "user" }).then(token => {
-          socket.emit('connectionReady', JSON.stringify({
-            token,
-            peerId
-          }));
-        });
-      }
+    if (socket.connected && peerId.length > 0) {
+      console.log("sending connectionReady with peerId: ", peerId);
+      getToken({ template: "user" }).then(token => {
+        socket.emit('connectionReady', JSON.stringify({
+          token,
+          peerId
+        }));
+      });
     }
   }, [peerId, socket]);
 

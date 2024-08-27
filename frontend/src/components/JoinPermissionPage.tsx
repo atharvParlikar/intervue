@@ -14,7 +14,7 @@ function JoinPermissionPage() {
   const { getToken } = useAuth();
   const { roomId } = useParams();
   const [renderRoom, setRenderRoom] = useState(false);
-  const [isHostResolved, setIsHostResolved] = useState(false);
+  const [isRenderResolved, setIsRenderResolved] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -26,7 +26,7 @@ function JoinPermissionPage() {
       } else {
         setRenderRoom(false);
       }
-      setIsHostResolved(true);
+      setIsRenderResolved(true);
     })();
   }, []);
 
@@ -44,7 +44,7 @@ function JoinPermissionPage() {
   return (
     <SignedIn>
       {
-        isHostResolved ? (renderRoom ? <Room /> :
+        isRenderResolved ? (renderRoom ? <Room /> :
           <div className="flex h-screen w-screen items-center justify-center ">
             <div>
               <h1 className="font-thin text-3xl">Say hi to the camera ✨</h1>

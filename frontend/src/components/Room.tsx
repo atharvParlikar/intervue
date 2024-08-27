@@ -34,11 +34,8 @@ function Room() {
     });
 
     if (res.status === 200) {
-      toast("SocketID set in db successfully.", { type: "success" });
       userType.current = res.data.userType;
       setRenderVideo(true);
-    } else {
-      toast("Unable to set socketID  in db.", { type: "success" });
     }
   }
 
@@ -46,18 +43,16 @@ function Room() {
     socket.on("connect", () => {
       setSocket();
 
-      socket.on("notify", (userObject: string) => {
+      socket.on("notify", (userObject: string, callback) => {
         console.log("notify called");
         const user = JSON.parse(userObject);
-        notify(user);
+        notify(user, callback);
       });
 
     });
 
     return () => {
       socket.off("connect");
-      socket.off("createSuccess");
-      socket.off("joinSuccess");
       socket.off("notify");
     }
   })
@@ -65,22 +60,15 @@ function Room() {
 
   const notify = (user: {
     email: string;
-    socketId: string;
     firstName: string;
-  }) =>
+  }, callback: any) =>
     toast(
       <div>
         <p className="mb-2">{user.email} is trying to join the meeting.</p>
         <Button
           onClick={() => {
             toast.dismiss();
-            socket.emit(
-              "acceptJoin",
-              JSON.stringify({
-                ...user,
-                roomId,
-              }),
-            );
+            callback(true);
           }}
         >
           Allow

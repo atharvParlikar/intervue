@@ -52,7 +52,23 @@ connectDb();
 const rooms: Rooms = {};
 const roomsInverse: { [key: string]: string } = {};
 const roomsInverseSocket: { [key: string]: string } = {};
-const webRTCConnections: Connection = {};
+
+type EmitCallback<T> = (response: T) => void;
+
+function emitAndWait<T>(socketId: string, eventName: string, data: any): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const socket = io.sockets.sockets.get(socketId)
+    console.log(socket, socket?.id);
+    if (!socket) {
+      reject(new Error('Socket not found'));
+      return;
+    }
+
+    socket.emit(eventName, data, ((response: T) => {
+      resolve(response);
+    }) as EmitCallback<T>);
+  });
+}
 
 io.on("connection", (socket: Socket) => {
   console.log(`⚡: ${socket.id} user just connected`);
@@ -306,7 +322,8 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
   if (!room || !room.participant) {
     res.status(409).json({
       message: "room is full"
-    })
+    });
+    return;
   }
 
   try {
@@ -321,6 +338,16 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
       email,
       firstName,
     };
+
+    // it is pretty likely that he host has socketId set that's why we are not checking if it is
+    const hostResponse = await emitAndWait<boolean>(room.host.socketId!, "notify", JSON.stringify({ email, firstName }));
+
+    if (!hostResponse) {
+      res.status(409).json({
+        message: "host has denied access"
+      });
+      return;
+    }
 
     try {
       await Room.findOneAndUpdate({ roomId }, { participant }, { new: true, upsert: false });

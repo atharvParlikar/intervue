@@ -16,3 +16,5 @@
 - [ ] Show error on the Output console
 - [ ] Better UI/UX
 - [x] Better user management
+
+### Flexible layout rules

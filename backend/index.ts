@@ -44,6 +44,8 @@ type Connection = { [key: string]: string[] };
 const connectDb = () => {
   connect("mongodb://127.0.0.1:27017/intervue").then(() => {
     console.log("📂 Database Connected...");
+  }).catch((error) => {
+    console.error("❌ Database Connection Error:", error);
   });
 };
 
@@ -58,13 +60,15 @@ type EmitCallback<T> = (response: T) => void;
 function emitAndWait<T>(socketId: string, eventName: string, data: any): Promise<T> {
   return new Promise((resolve, reject) => {
     const socket = io.sockets.sockets.get(socketId)
-    console.log(socket, socket?.id);
+    console.log(`[emitAndWait] Attempting to emit to socket ${socketId}`);
     if (!socket) {
+      console.error(`[emitAndWait] Socket not found for ID: ${socketId}`);
       reject(new Error('Socket not found'));
       return;
     }
 
     socket.emit(eventName, data, ((response: T) => {
+      console.log(`[emitAndWait] Received response for event ${eventName}`);
       resolve(response);
     }) as EmitCallback<T>);
   });
@@ -74,78 +78,94 @@ io.on("connection", (socket: Socket) => {
   console.log(`⚡: ${socket.id} user just connected`);
 
   socket.on("message", (message) => {
-    console.log("Got message: ", message, " | from ", socket.id);
+    console.log(`[message] Received message from ${socket.id}:`, message);
   });
 
   socket.on("acceptJoin", (userObject: string) => {
     const { roomId, socketId, email, firstName } = JSON.parse(userObject);
-    console.log("acceptJoin: ", roomId, socketId);
+    console.log(`[acceptJoin] User ${email} accepted to join room ${roomId}`);
     rooms[roomId].participant = { email, socketId, firstName };
     roomsInverse[email] = roomId;
     roomsInverseSocket[socketId] = roomId;
     io.to(socketId).emit("joinSuccess");
+    console.log(`[acceptJoin] Join success emitted to ${socketId}`);
   });
 
   socket.on("connectionReady", async (connectionObject) => {
     const { token, peerId } = JSON.parse(connectionObject);
+    console.log(`[connectionReady] Received connectionReady from ${socket.id}`);
 
-    const jwt = await verifyToken(token, {
-      secretKey: process.env.CLERK_SECRET_KEY
-    });
+    try {
+      const jwt = await verifyToken(token, {
+        secretKey: process.env.CLERK_SECRET_KEY
+      });
 
-    if (!jwt || !jwt.email) {
-      console.log("could not verify jwt");
-      return;
-    }
-
-    const email = jwt.email as string;
-
-    console.log("got connectionReady from ", socket.id);
-    const inverseRoom = (await RoomsInverse.findOne({ email }));
-    if (!inverseRoom) return;
-
-    const roomId = inverseRoom.roomId;
-    const userType = inverseRoom.userType;
-
-    if (!roomId) {
-      console.log("[connectionReady] could not find room");
-      return;
-    }
-
-    const room = await Room.findOne({ roomId });
-    if (!room) return;
-
-    if (userType === "participant") {
-      const host = room?.host.socketId;
-
-      if (!host) return;
-      if (host.length < 0) {
-        console.log("[connectionReady] could not find host roomId");
-        return;
-      } else {
-        console.log("[connectionReady] host found ", host);
-        io.to(host).emit("connectionReady", peerId);
-        return;
-      }
-    } else {
-      const participant = room?.participant?.socketId;
-
-      if (!participant) return;
-      if (participant.length < 0) {
-        console.log("[connectionReady] could not find participant roomId");
-        return;
-      } else {
-        console.log("[connectionReady] participant found ", participant);
-        io.to(participant).emit("connectionReady", peerId);
+      if (!jwt || !jwt.email) {
+        console.error("[connectionReady] Could not verify JWT");
         return;
       }
 
+      const email = jwt.email as string;
+      const inverseRoom = (await RoomsInverse.findOne({ email }));
+      if (!inverseRoom) {
+        console.error(`[connectionReady] No inverse room found for email: ${email}`);
+        return;
+      }
+
+      const roomId = inverseRoom.roomId;
+      const userType = inverseRoom.userType;
+
+      if (!roomId) {
+        console.error("[connectionReady] Could not find room");
+        return;
+      }
+
+      const room = await Room.findOne({ roomId });
+      if (!room) {
+        console.error(`[connectionReady] No room found for roomId: ${roomId}`);
+        return;
+      }
+
+      if (userType === "participant") {
+        const host = room?.host.socketId;
+
+        if (!host) {
+          console.error("[connectionReady] Host not found in room");
+          return;
+        }
+        if (host.length < 0) {
+          console.error("[connectionReady] Could not find host roomId");
+          return;
+        } else {
+          console.log(`[connectionReady] Emitting connectionReady to host ${host}`);
+          io.to(host).emit("connectionReady", peerId);
+          return;
+        }
+      } else {
+        const participant = room?.participant?.socketId;
+
+        if (!participant) {
+          console.error("[connectionReady] Participant not found in room");
+          return;
+        }
+        if (participant.length < 0) {
+          console.error("[connectionReady] Could not find participant roomId");
+          return;
+        } else {
+          console.log(`[connectionReady] Emitting connectionReady to participant ${participant}`);
+          io.to(participant).emit("connectionReady", peerId);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("[connectionReady] Error processing connectionReady:", error);
     }
   });
 
   socket.on("offer", async (offerObject: string) => {
+    console.log(`[offer] Received offer from ${socket.id}`);
     const { token, offer } = JSON.parse(offerObject);
-    console.log("got token: ", token);
+
     try {
       const jwt = await verifyToken(token, {
         secretKey: process.env.CLERK_SECRET_KEY,
@@ -156,24 +176,26 @@ io.on("connection", (socket: Socket) => {
       const room = await Room.findOne({ roomId });
 
       if (room) {
-        console.log("Got here");
         const otherPeer =
           room.host?.socketId === socket.id
             ? room.participant?.socketId
             : room.host?.socketId;
         if (otherPeer) {
+          console.log(`[offer] Emitting offer to ${otherPeer}`);
           io.to(otherPeer).emit("offer", JSON.stringify(offer));
         } else {
-          console.log("idk wtf just happened");
+          console.error("[offer] Other peer not found in room");
         }
+      } else {
+        console.error(`[offer] Room not found for email: ${email}`);
       }
     } catch (err) {
-      console.error("Could not verify jwt token");
-      return;
+      console.error("[offer] Error processing offer:", err);
     }
   });
 
   socket.on("answer", async (answerObject: string) => {
+    console.log(`[answer] Received answer from ${socket.id}`);
     const { token, answer } = JSON.parse(answerObject);
     try {
       const jwt = await verifyToken(token, {
@@ -190,16 +212,21 @@ io.on("connection", (socket: Socket) => {
             ? room.participant?.socketId
             : room.host?.socketId;
         if (otherPeer) {
+          console.log(`[answer] Emitting answer to ${otherPeer}`);
           io.to(otherPeer).emit("answer", JSON.stringify(answer));
+        } else {
+          console.error("[answer] Other peer not found in room");
         }
+      } else {
+        console.error(`[answer] Room not found for email: ${email}`);
       }
-
     } catch (err) {
-      console.error("err: ", err);
+      console.error("[answer] Error processing answer:", err);
     }
   });
 
   socket.on("editor-val", (valObject: string) => {
+    console.log(`[editor-val] Received editor value from ${socket.id}`);
     const { val, email } = JSON.parse(valObject);
     const room = rooms[roomsInverse[email]];
     const otherPeer =
@@ -207,11 +234,15 @@ io.on("connection", (socket: Socket) => {
         ? room.participant?.socketId
         : room.host?.socketId;
     if (otherPeer) {
+      console.log(`[editor-val] Emitting editor value to ${otherPeer}`);
       io.to(otherPeer).emit("editor-val", val);
+    } else {
+      console.error("[editor-val] Other peer not found in room");
     }
   });
 
   socket.on("run-code", (codeObject: string) => {
+    console.log(`[run-code] Received run code request from ${socket.id}`);
     const { code, email } = JSON.parse(codeObject);
     let output = "";
 
@@ -227,25 +258,27 @@ io.on("connection", (socket: Socket) => {
       output += data.toString();
     });
     pythonProcess.on("close", (code) => {
-      console.log("Python process exited with code", code);
-      console.log("Output:", output);
+      console.log(`[run-code] Python process exited with code ${code}`);
+      console.log("[run-code] Output:", output);
 
       const room = rooms[roomsInverse[email]];
 
       const host = room.host.socketId;
       const participant = room.participant?.socketId;
+      console.log(`[run-code] Emitting output to host ${host} and participant ${participant}`);
       io.to(host).emit("output", JSON.stringify({ code, output }));
       io.to(participant!).emit("output", JSON.stringify({ code, output }));
     });
   });
 
   socket.on("debug", () => {
+    console.log("[debug] Debug information requested");
     console.table(rooms);
     console.table(roomsInverse);
   });
 
   socket.on("disconnect", async () => {
-    console.log("🔥: A user disconnected [", socket.id, "]");
+    console.log(`🔥: User disconnected [${socket.id}]`);
 
     try {
       const found = await Room.findOneAndUpdate(
@@ -254,47 +287,48 @@ io.on("connection", (socket: Socket) => {
         { new: true }
       );
 
-      console.log("found := ", found);
+      console.log("[disconnect] Update result for host:", found);
 
       if (found === null) {
         const found = await Room.findOneAndUpdate(
-          { "participant": socket.id },
+          { "participant.socketId": socket.id },
           { $set: { "participant.socketId": "" } },
           { new: true }
         );
-        console.log(found);
+        console.log("[disconnect] Update result for participant:", found);
       }
 
-      console.log("socketId deleted");
+      console.log("[disconnect] SocketId deleted from database");
     } catch (err) {
-      console.error("some fucking error with deleting socket id");
+      console.error("[disconnect] Error updating socket id in database:", err);
     }
   });
 });
 
 app.post("/createRoom", async (req: Request, res: Response) => {
+  console.log("[POST /createRoom] Create room request received");
   const { roomId, token } = req.body;
 
-  const jwt = await verifyToken(token, {
-    secretKey: process.env.CLERK_SECRET_KEY,
-  });
-
-  const email = jwt.email as string;
-  const firstName = jwt.firstName as string;
-
-  const host = {
-    email,
-    firstName,
-  };
-
   try {
+    const jwt = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+
+    const email = jwt.email as string;
+    const firstName = jwt.firstName as string;
+
+    const host = {
+      email,
+      firstName,
+    };
+
     const newRoom = new Room({
       roomId,
       host,
       participant: null,
     });
     await newRoom.save();
-    console.log("roomInfo saved in database");
+    console.log("[POST /createRoom] Room info saved in database");
 
     const newRoomInverse = new RoomsInverse({
       email,
@@ -302,26 +336,29 @@ app.post("/createRoom", async (req: Request, res: Response) => {
       userType: "host"
     });
     await newRoomInverse.save();
-    console.log("roomInverse saved in database");
+    console.log("[POST /createRoom] Room inverse saved in database");
 
     res.status(201).json({
       message: "Room created successfully",
       room: roomId,
     });
   } catch (e) {
-    console.error(e);
+    console.error("[POST /createRoom] Error creating room:", e);
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
 
 app.post("/joinRoom", async (req: Request, res: Response) => {
+  console.log("[POST /joinRoom] Join room request received");
   const { roomId, token } = req.body;
 
   const room = await Room.findOne({ roomId });
 
-  if (!room || !room.participant) {
+
+  if (!room || room.participant?.socketId) {
+    console.log("[POST /joinRoom] Room is full or doesn't exist");
     res.status(409).json({
-      message: "room is full"
+      message: "room is full or doesn't exist"
     });
     return;
   }
@@ -339,10 +376,11 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
       firstName,
     };
 
-    // it is pretty likely that he host has socketId set that's why we are not checking if it is
+    console.log(`[POST /joinRoom] Notifying host ${room.host.socketId}`);
     const hostResponse = await emitAndWait<boolean>(room.host.socketId!, "notify", JSON.stringify({ email, firstName }));
 
     if (!hostResponse) {
+      console.log("[POST /joinRoom] Host denied access");
       res.status(409).json({
         message: "host has denied access"
       });
@@ -351,6 +389,7 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
 
     try {
       await Room.findOneAndUpdate({ roomId }, { participant }, { new: true, upsert: false });
+      console.log("[POST /joinRoom] Room updated with participant");
 
       const newRoomInverse = new RoomsInverse({
         email,
@@ -359,18 +398,18 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
       });
 
       await newRoomInverse.save();
-      console.log("roomInverse saved in database");
+      console.log("[POST /joinRoom] Room inverse saved in database");
 
       res.status(201).json({
-        message: "Room created successfully",
+        message: "Joined room successfully",
         room: roomId,
       });
     } catch (e) {
-      console.error(e);
+      console.error("[POST /joinRoom] Error updating room or saving inverse:", e);
       res.status(500).json({ message: "Internal Server Error" });
     }
   } catch (e) {
-    console.error(e);
+    console.error("[POST /joinRoom] Error verifying token:", e);
     res.status(401).json({
       message: "token invalid"
     });
@@ -378,22 +417,22 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
 });
 
 app.post("/set-socket", async (req: Request, res: Response) => {
-  console.log("[POST] /set-socket called");
+  console.log("[POST /set-socket] Set socket request received");
 
   const { token, socketId, roomId_ } = req.body;
 
-  const jwt = await verifyToken(token, {
-    secretKey: process.env.CLERK_SECRET_KEY,
-  });
-
-  const email = jwt.email as string;
-
-  const inverseRoom = await RoomsInverse.findOne({ email });
-  const roomId = inverseRoom !== null ? inverseRoom.roomId : roomId_;
-
   try {
+    const jwt = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+
+    const email = jwt.email as string;
+
+    const inverseRoom = await RoomsInverse.findOne({ email });
+    const roomId = inverseRoom !== null ? inverseRoom.roomId : roomId_;
+
     if (inverseRoom?.userType === "host") {
-      console.log("Got here host");
+      console.log(`[POST /set-socket] Updating host socket ID to ${socketId} for room ${roomId}`);
       await Room.updateOne({ roomId }, { $set: { "host.socketId": socketId } });
 
       res.status(200).json({
@@ -401,15 +440,21 @@ app.post("/set-socket", async (req: Request, res: Response) => {
         userType: "host"
       });
     } else if (inverseRoom?.userType === "participant") {
-      console.log("Got here participant");
+      console.log(`[POST /set-socket] Updating participant socket ID to ${socketId} for room ${roomId}`);
       await Room.updateOne({ roomId }, { $set: { "participant.socketId": socketId } });
 
       res.status(200).json({
         message: "socket id set successfully",
         userType: "participant"
       });
+    } else {
+      console.error(`[POST /set-socket] Invalid userType for email ${email}`);
+      res.status(400).json({
+        message: "Invalid user type",
+      });
     }
-  } catch {
+  } catch (error) {
+    console.error("[POST /set-socket] Error setting socket ID:", error);
     res.status(500).json({
       message: "socket id set failed",
     });
@@ -417,21 +462,44 @@ app.post("/set-socket", async (req: Request, res: Response) => {
 });
 
 app.post("/verify_host", async (req: Request, res: Response) => {
+  console.log("[POST /verify_host] Verify host request received");
   const { token } = req.body;
-  const jwt = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
-  const email = jwt.email as string;
-  const room = await RoomsInverse.findOne({ email });
-  if (room) {
-    res.status(200).json({
-      isHost: true
-    });
-  } else {
-    res.status(200).json({
-      isHost: false
+
+  try {
+    const jwt = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+    const email = jwt.email as string;
+    const room = await RoomsInverse.findOne({ email });
+
+    if (room) {
+      console.log(`[POST /verify_host] User ${email} verified as host`);
+      res.status(200).json({
+        isHost: true
+      });
+    } else {
+      console.log(`[POST /verify_host] User ${email} is not a host`);
+      res.status(200).json({
+        isHost: false
+      });
+    }
+  } catch (error) {
+    console.error("[POST /verify_host] Error verifying host:", error);
+    res.status(500).json({
+      message: "Error verifying host status",
     });
   }
 });
 
 server.listen(PORT, () => {
-  console.log(`Server listening on ${PORT}`);
+  console.log(`🚀 Server listening on port ${PORT}`);
+  console.log(`💻 Server running in ${process.env.NODE_ENV || 'development'} mode`);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Application specific logging, throwing an error, or other logic here
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Application specific logging, throwing an error, or other logic here
 });

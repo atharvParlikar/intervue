@@ -104,7 +104,6 @@ function VideoCall({ userType }: props) {
           muted
         />
       </div>
-      <Button onClick={() => setHideSelf(false)}> Hide Self</Button >
     </>
   )
 }

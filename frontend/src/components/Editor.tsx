@@ -2,9 +2,9 @@ import CodeMirror from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { useCallback, useState, useRef, useEffect, useContext } from "react";
 import { socketContext } from "../socket";
-import { materialLight } from "@ddietr/codemirror-themes/material-light";
+import { githubLight } from "@ddietr/codemirror-themes/github-light";
 import { Button } from "./ui/button";
-import { useUser } from "@clerk/clerk-react";
+import { useUser, useAuth } from "@clerk/clerk-react";
 
 function Editor() {
   const [value, setValue] = useState<string>("");
@@ -12,6 +12,7 @@ function Editor() {
   const [parentHeight, setParentHeight] = useState(0);
   const socket = useContext(socketContext);
   const { user } = useUser();
+  const { getToken } = useAuth();
 
   useEffect(() => {
     if (parentRef.current) {
@@ -24,7 +25,7 @@ function Editor() {
     setValue(val);
   });
 
-  const changeValue = useCallback((val: string) => {
+  const changeValue = useCallback(async (val: string) => {
     setValue(val);
     console.log(val);
     socket.emit(
@@ -32,11 +33,10 @@ function Editor() {
       JSON.stringify({
         val,
         email: user?.primaryEmailAddress?.emailAddress,
+        token: await getToken(),
       }),
     );
   }, []);
-
-  // background : bg-[#1a1b26]
 
   return (
     <div
@@ -63,7 +63,7 @@ function Editor() {
         value={value}
         extensions={[python()]}
         onChange={changeValue}
-        theme={materialLight}
+        theme={githubLight}
         height={`${parentHeight - 50}px`}
       />
     </div>
@@ -71,4 +71,3 @@ function Editor() {
 }
 
 export default Editor;
-

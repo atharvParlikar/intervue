@@ -1,4 +1,4 @@
-import { forwardRef, useContext, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useContext, useImperativeHandle, useRef } from 'react';
 import { Mic, MicOff, VideocamOutlined, VideocamOffOutlined } from "@mui/icons-material";
 import IconButton from './ui/IconButton';
 import "../App.css"
@@ -12,7 +12,7 @@ interface VideoRenderHandles {
 const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const [hideSelf, setHideSelf] = useState<boolean>(true);
+  // const [hideSelf, setHideSelf] = useState<boolean>(true);
   const { videoSettings, setVideoSettings } = useContext(VideoSettingsContext)!;
 
   useImperativeHandle(ref, () => ({
@@ -22,21 +22,6 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
 
   return (
     <div className="h-full drop-shadow-lg">
-      {/* <div className={!hideSelf ? "hidden" : ""}> */}
-      {/*   <video */}
-      {/*     className="videoElement h-full" */}
-      {/*     ref={localVideoRef} */}
-      {/*     autoPlay */}
-      {/*     muted */}
-      {/*   /> */}
-      {/* </div> */}
-      {/* <video */}
-      {/*   className="videoElement w-full rounded-lg object-cover" */}
-      {/*   ref={remoteVideoRef} */}
-      {/*   autoPlay */}
-      {/*   muted */}
-      {/* /> */}
-
       <div className="relative group w-full h-full bg-yellow-300">
         <video
           ref={remoteVideoRef}

@@ -7,6 +7,7 @@ import { configDotenv } from "dotenv";
 import { spawn } from "child_process";
 import { connect } from "mongoose";
 import { Room, RoomsInverse } from "./schemas";
+import { createClient } from "redis";
 
 const app = express();
 const PORT = 3000;
@@ -39,17 +40,11 @@ type Rooms = {
   [key: string]: Room;
 };
 
-type Connection = { [key: string]: string[] };
+const redisClient = createClient();
 
-const connectDb = () => {
-  connect("mongodb://127.0.0.1:27017/intervue").then(() => {
-    console.log("📂 Database Connected...");
-  }).catch((error) => {
-    console.error("❌ Database Connection Error:", error);
-  });
-};
-
-connectDb();
+redisClient.on("error", (err) => {
+  console.error("Error connecting to redis:\n", err);
+});
 
 const rooms: Rooms = {};
 const roomsInverse: { [key: string]: string } = {};
@@ -57,13 +52,17 @@ const roomsInverseSocket: { [key: string]: string } = {};
 
 type EmitCallback<T> = (response: T) => void;
 
-function emitAndWait<T>(socketId: string, eventName: string, data: any): Promise<T> {
+function emitAndWait<T>(
+  socketId: string,
+  eventName: string,
+  data: any,
+): Promise<T> {
   return new Promise((resolve, reject) => {
-    const socket = io.sockets.sockets.get(socketId)
+    const socket = io.sockets.sockets.get(socketId);
     console.log(`[emitAndWait] Attempting to emit to socket ${socketId}`);
     if (!socket) {
       console.error(`[emitAndWait] Socket not found for ID: ${socketId}`);
-      reject(new Error('Socket not found'));
+      reject(new Error("Socket not found"));
       return;
     }
 
@@ -97,7 +96,7 @@ io.on("connection", (socket: Socket) => {
 
     try {
       const jwt = await verifyToken(token, {
-        secretKey: process.env.CLERK_SECRET_KEY
+        secretKey: process.env.CLERK_SECRET_KEY,
       });
 
       if (!jwt || !jwt.email) {
@@ -106,9 +105,11 @@ io.on("connection", (socket: Socket) => {
       }
 
       const email = jwt.email as string;
-      const inverseRoom = (await RoomsInverse.findOne({ email }));
+      const inverseRoom = await RoomsInverse.findOne({ email });
       if (!inverseRoom) {
-        console.error(`[connectionReady] No inverse room found for email: ${email}`);
+        console.error(
+          `[connectionReady] No inverse room found for email: ${email}`,
+        );
         return;
       }
 
@@ -137,7 +138,9 @@ io.on("connection", (socket: Socket) => {
           console.error("[connectionReady] Could not find host roomId");
           return;
         } else {
-          console.log(`[connectionReady] Emitting connectionReady to host ${host}`);
+          console.log(
+            `[connectionReady] Emitting connectionReady to host ${host}`,
+          );
           io.to(host).emit("connectionReady", peerId);
           return;
         }
@@ -152,13 +155,18 @@ io.on("connection", (socket: Socket) => {
           console.error("[connectionReady] Could not find participant roomId");
           return;
         } else {
-          console.log(`[connectionReady] Emitting connectionReady to participant ${participant}`);
+          console.log(
+            `[connectionReady] Emitting connectionReady to participant ${participant}`,
+          );
           io.to(participant).emit("connectionReady", peerId);
           return;
         }
       }
     } catch (error) {
-      console.error("[connectionReady] Error processing connectionReady:", error);
+      console.error(
+        "[connectionReady] Error processing connectionReady:",
+        error,
+      );
     }
   });
 
@@ -225,9 +233,13 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  socket.on("editor-val", (valObject: string) => {
+  socket.on("editor-val", async (valObject: string) => {
     console.log(`[editor-val] Received editor value from ${socket.id}`);
-    const { val, email } = JSON.parse(valObject);
+    const { val, token } = JSON.parse(valObject);
+    const jwt = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+    const email = jwt.email as string;
     const room = rooms[roomsInverse[email]];
     const otherPeer =
       room.host?.socketId === socket.id
@@ -265,7 +277,9 @@ io.on("connection", (socket: Socket) => {
 
       const host = room.host.socketId;
       const participant = room.participant?.socketId;
-      console.log(`[run-code] Emitting output to host ${host} and participant ${participant}`);
+      console.log(
+        `[run-code] Emitting output to host ${host} and participant ${participant}`,
+      );
       io.to(host).emit("output", JSON.stringify({ code, output }));
       io.to(participant!).emit("output", JSON.stringify({ code, output }));
     });
@@ -284,7 +298,7 @@ io.on("connection", (socket: Socket) => {
       const found = await Room.findOneAndUpdate(
         { "host.socketId": socket.id },
         { $set: { "host.socketId": "" } },
-        { new: true }
+        { new: true },
       );
 
       console.log("[disconnect] Update result for host:", found);
@@ -293,7 +307,7 @@ io.on("connection", (socket: Socket) => {
         const found = await Room.findOneAndUpdate(
           { "participant.socketId": socket.id },
           { $set: { "participant.socketId": "" } },
-          { new: true }
+          { new: true },
         );
         console.log("[disconnect] Update result for participant:", found);
       }
@@ -322,20 +336,14 @@ app.post("/createRoom", async (req: Request, res: Response) => {
       firstName,
     };
 
-    const newRoom = new Room({
-      roomId,
-      host,
-      participant: null,
-    });
-    await newRoom.save();
+    await redisClient.hSet(`room:${roomId}`, "host", JSON.stringify(host));
     console.log("[POST /createRoom] Room info saved in database");
 
-    const newRoomInverse = new RoomsInverse({
+    await redisClient.hSet(
+      "roomInverse",
       email,
-      roomId,
-      userType: "host"
-    });
-    await newRoomInverse.save();
+      JSON.stringify({ roomId, userType: "host" }),
+    );
     console.log("[POST /createRoom] Room inverse saved in database");
 
     res.status(201).json({
@@ -354,11 +362,10 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
 
   const room = await Room.findOne({ roomId });
 
-
   if (!room || room.participant?.socketId) {
     console.log("[POST /joinRoom] Room is full or doesn't exist");
     res.status(409).json({
-      message: "room is full or doesn't exist"
+      message: "room is full or doesn't exist",
     });
     return;
   }
@@ -377,27 +384,33 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
     };
 
     console.log(`[POST /joinRoom] Notifying host ${room.host.socketId}`);
-    const hostResponse = await emitAndWait<boolean>(room.host.socketId!, "notify", JSON.stringify({ email, firstName }));
+    const hostResponse = await emitAndWait<boolean>(
+      room.host.socketId!,
+      "notify",
+      JSON.stringify({ email, firstName }),
+    );
 
     if (!hostResponse) {
       console.log("[POST /joinRoom] Host denied access");
       res.status(409).json({
-        message: "host has denied access"
+        message: "host has denied access",
       });
       return;
     }
 
     try {
-      await Room.findOneAndUpdate({ roomId }, { participant }, { new: true, upsert: false });
+      await redisClient.hSet(
+        `room:${roomId}`,
+        "participant",
+        JSON.stringify(participant),
+      );
       console.log("[POST /joinRoom] Room updated with participant");
 
-      const newRoomInverse = new RoomsInverse({
+      await redisClient.hSet(
+        "roomInverse",
         email,
-        roomId,
-        userType: "participant"
-      });
-
-      await newRoomInverse.save();
+        JSON.stringify({ roomId, userType: "participant" }),
+      );
       console.log("[POST /joinRoom] Room inverse saved in database");
 
       res.status(201).json({
@@ -405,13 +418,16 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
         room: roomId,
       });
     } catch (e) {
-      console.error("[POST /joinRoom] Error updating room or saving inverse:", e);
+      console.error(
+        "[POST /joinRoom] Error updating room or saving inverse:",
+        e,
+      );
       res.status(500).json({ message: "Internal Server Error" });
     }
   } catch (e) {
     console.error("[POST /joinRoom] Error verifying token:", e);
     res.status(401).json({
-      message: "token invalid"
+      message: "token invalid",
     });
   }
 });
@@ -428,24 +444,61 @@ app.post("/set-socket", async (req: Request, res: Response) => {
 
     const email = jwt.email as string;
 
-    const inverseRoom = await RoomsInverse.findOne({ email });
+    const inverseRooms = await redisClient.hGetAll("roomInverse");
+    const inverseRoom = JSON.parse(inverseRooms[email]);
+
     const roomId = inverseRoom !== null ? inverseRoom.roomId : roomId_;
 
     if (inverseRoom?.userType === "host") {
-      console.log(`[POST /set-socket] Updating host socket ID to ${socketId} for room ${roomId}`);
-      await Room.updateOne({ roomId }, { $set: { "host.socketId": socketId } });
+      console.log(
+        `[POST /set-socket] Updating host socket ID to ${socketId} for room ${roomId}`,
+      );
+      const user = await redisClient.hGet(`room:${roomId}`, "host");
+
+      if (!user) {
+        res.status(404).json({
+          message: "user not found",
+        });
+        return;
+      }
+
+      const userObj = JSON.parse(user);
+
+      await redisClient.hSet(
+        `room:${roomId}`,
+        "host",
+        JSON.stringify({ ...userObj, socketId }),
+      );
 
       res.status(200).json({
         message: "socket id set successfully",
-        userType: "host"
+        userType: "host",
       });
     } else if (inverseRoom?.userType === "participant") {
-      console.log(`[POST /set-socket] Updating participant socket ID to ${socketId} for room ${roomId}`);
-      await Room.updateOne({ roomId }, { $set: { "participant.socketId": socketId } });
+      console.log(
+        `[POST /set-socket] Updating participant socket ID to ${socketId} for room ${roomId}`,
+      );
+
+      const user = await redisClient.hGet(`room:${roomId}`, "participant");
+
+      if (!user) {
+        res.status(404).json({
+          message: "user not found",
+        });
+        return;
+      }
+
+      const userObj = JSON.parse(user);
+
+      await redisClient.hSet(
+        `room:${roomId}`,
+        "participant",
+        JSON.stringify({ ...userObj, socketId }),
+      );
 
       res.status(200).json({
         message: "socket id set successfully",
-        userType: "participant"
+        userType: "participant",
       });
     } else {
       console.error(`[POST /set-socket] Invalid userType for email ${email}`);
@@ -466,19 +519,22 @@ app.post("/verify_host", async (req: Request, res: Response) => {
   const { token } = req.body;
 
   try {
-    const jwt = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+    const jwt = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
     const email = jwt.email as string;
-    const room = await RoomsInverse.findOne({ email });
+    const inverseRooms = await redisClient.hGetAll("inverseRoom");
+    const room = inverseRooms[email];
 
     if (room) {
       console.log(`[POST /verify_host] User ${email} verified as host`);
       res.status(200).json({
-        isHost: true
+        isHost: true,
       });
     } else {
       console.log(`[POST /verify_host] User ${email} is not a host`);
       res.status(200).json({
-        isHost: false
+        isHost: false,
       });
     }
   } catch (error) {
@@ -491,15 +547,17 @@ app.post("/verify_host", async (req: Request, res: Response) => {
 
 server.listen(PORT, () => {
   console.log(`🚀 Server listening on port ${PORT}`);
-  console.log(`💻 Server running in ${process.env.NODE_ENV || 'development'} mode`);
+  console.log(
+    `💻 Server running in ${process.env.NODE_ENV || "development"} mode`,
+  );
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
   // Application specific logging, throwing an error, or other logic here
 });
 
-process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught Exception:", error);
   // Application specific logging, throwing an error, or other logic here
 });

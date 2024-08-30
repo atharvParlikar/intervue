@@ -67,7 +67,7 @@ function Home() {
                 value={code}
                 placeholder="Code"
               />
-              <Button onClick={joinRoom}>
+              <Button onClick={() => joinRoom(code)}>
                 <RightArrow />
                 Join Room
               </Button>

@@ -2355,6 +2355,11 @@ minimatch@^3.0.5, minimatch@^3.1.1, minimatch@^3.1.2:
   resolved "https://registry.yarnpkg.com/minipass/-/minipass-7.0.4.tgz#dbce03740f50a4786ba994c1fb908844d27b038c"
   integrity sha512-jYofLM5Dam9279rdkWzqHozUo4ybjdZmCsDHePy5V/PbBcVMiSZR97gmAy45aqi8CK1lG2ECd356FU86avfwUQ==
 
+monaco-languages@^2.11.1:
+  version "2.11.1"
+  resolved "https://registry.yarnpkg.com/monaco-languages/-/monaco-languages-2.11.1.tgz#5e485677dfb71673c777e19da862b458aadf55a1"
+  integrity sha512-XLd6RtqCTYQ1AD7Tz/JzT/Eag/OfvjUtsetqVe6Hm+Tj01osGgnlKsjmPPfTddOIfnSsT6S3TR5aMRL57bSrJg==
+
 ms@2.1.2:
   version "2.1.2"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.1.2.tgz#d09d1f357b443f493382a8eb3ccd183872ae6009"

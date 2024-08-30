@@ -151,7 +151,6 @@ function Room() {
           onResizeStop={(_, { size }) => handleResize('editor', size.width, size.height)}
           className="border box-border overflow-auto rounded-md bg-gray-100 h-full"
         >
-          <div>{socket.id}</div>
           <Editor />
         </ResizableBox>
         <div className="flex flex-col flex-1 gap-2">

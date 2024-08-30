@@ -1,5 +1,5 @@
 import "../App.css";
-import VideoCall from "./VideoCall";
+import WebRTCWrapper from "./WebRTCWrapper";
 import Editor from "./Editor";
 import Output from "./Output";
 
@@ -142,7 +142,7 @@ function Room() {
 
   return (
     <SignedIn>
-      <div className="flex h-screen w-screen">
+      <div className="flex h-screen w-screen gap-2">
         <ResizableBox
           width={sizes.editor.width}
           height={sizes.editor.height}
@@ -154,7 +154,7 @@ function Room() {
           <div>{socket.id}</div>
           <Editor />
         </ResizableBox>
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 gap-2">
           <ResizableBox
             width={sizes.output.width}
             height={sizes.output.height}
@@ -174,7 +174,7 @@ function Room() {
             className="border box-border overflow-auto rounded-md bg-green-300"
           >
             {renderVideo && userType.current && (
-              <VideoCall userType={userType.current} />
+              <WebRTCWrapper userType={userType.current} />
             )}
           </ResizableBox>
         </div>

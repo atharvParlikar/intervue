@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import Room from "./Room";
+import VideoSettingsContextProvider from "../contexts/video-settings";
 
 function JoinPermissionPage() {
   const { getToken } = useAuth();

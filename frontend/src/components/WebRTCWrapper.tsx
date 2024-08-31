@@ -1,28 +1,30 @@
 import { useEffect, useRef, useState, useContext } from "react";
 import Peer from 'peerjs'
 import { socketContext } from "../socket";
-import { useAuth } from "@clerk/clerk-react";
 import VideoRender from "./VideoRender";
 import { VideoSettingsContext } from "../contexts/video-settings";
+import { AuthTokenContext } from "../contexts/authtoken-context";
 
 interface props {
   userType: string
 };
+
+interface VideoRenderHandles {
+  getLocalVideo: () => HTMLVideoElement | null;
+  getRemoteVideo: () => HTMLVideoElement | null;
+}
 
 function VideoCall({ userType }: props) {
   const [peerId, setPeerId] = useState('');
   const [remotePeerId, setRemotePeerId] = useState('');
   const peerInstance = useRef<Peer | null>(null);
   const localStream = useRef<MediaStream | null>(null);
-  const { getToken } = useAuth();
+  const token = useContext(AuthTokenContext);
 
   const socket = useContext(socketContext);
   const { videoSettings } = useContext(VideoSettingsContext)!;
 
-  const videoRenderRef = useRef<{
-    getLocalVideo: () => HTMLVideoElement | null;
-    getRemoteVideo: () => HTMLVideoElement | null;
-  }>(null);
+  const videoRenderRef = useRef<VideoRenderHandles>(null);
 
 
   const call = async (peerId: string) => {
@@ -103,12 +105,10 @@ function VideoCall({ userType }: props) {
   useEffect(() => {
     if (socket.connected && peerId.length > 0) {
       console.log("sending connectionReady with peerId: ", peerId);
-      getToken({ template: "user" }).then(token => {
-        socket.emit('connectionReady', JSON.stringify({
-          token,
-          peerId
-        }));
-      });
+      socket.emit('connectionReady', JSON.stringify({
+        token,
+        peerId
+      }));
     }
   }, [peerId, socket]);
 

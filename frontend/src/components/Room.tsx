@@ -11,9 +11,9 @@ import { SignedIn } from "@clerk/clerk-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { Button } from "./ui/button";
-import { useAuth } from "@clerk/clerk-react";
 import { useContext, useEffect, useState, useRef } from "react";
 import { socketContext } from "../socket";
+import { AuthTokenContext } from '../contexts/authtoken-context'
 import axios from "axios";
 
 interface Sizes {
@@ -23,10 +23,10 @@ interface Sizes {
 
 function Room() {
   const { roomId } = useParams();
-  const { getToken } = useAuth();
   const socket = useContext(socketContext);
   const [renderVideo, setRenderVideo] = useState(false);
   const userType = useRef<string | null>(null)
+  const token = useContext(AuthTokenContext);
 
   useEffect(() => {
     if (!socket.connected) {
@@ -38,7 +38,7 @@ function Room() {
   const setSocket = async () => {
     const res = await axios.post("http://localhost:3000/set-socket", {
       socketId: socket.id,
-      token: await getToken({ template: "user" }),
+      token,
       roomId_: roomId
     });
 

@@ -5,8 +5,6 @@ import { Socket, Server as SocketServer } from "socket.io";
 import { verifyToken } from "@clerk/backend";
 import { configDotenv } from "dotenv";
 import { spawn } from "child_process";
-import { connect } from "mongoose";
-import { Room, RoomsInverse } from "./schemas";
 import { createClient } from "redis";
 
 const app = express();
@@ -41,6 +39,7 @@ type Rooms = {
 };
 
 const redisClient = createClient();
+redisClient.connect();
 
 redisClient.on("error", (err) => {
   console.error("Error connecting to redis:\n", err);
@@ -51,6 +50,13 @@ const roomsInverse: { [key: string]: string } = {};
 const roomsInverseSocket: { [key: string]: string } = {};
 
 type EmitCallback<T> = (response: T) => void;
+
+const objectMap = (obj: Object, fn: any) =>
+  Object.fromEntries(
+    Object.entries(obj).map(
+      ([k, v], i) => [k, fn(v, k, i)]
+    )
+  )
 
 function emitAndWait<T>(
   socketId: string,
@@ -105,7 +111,8 @@ io.on("connection", (socket: Socket) => {
       }
 
       const email = jwt.email as string;
-      const inverseRoom = await RoomsInverse.findOne({ email });
+      const inverseRooms = await redisClient.hGetAll("roomInverse");
+      const inverseRoom = JSON.parse(inverseRooms[email]);
       if (!inverseRoom) {
         console.error(
           `[connectionReady] No inverse room found for email: ${email}`,
@@ -121,10 +128,19 @@ io.on("connection", (socket: Socket) => {
         return;
       }
 
-      const room = await Room.findOne({ roomId });
-      if (!room) {
+      const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
+
+      if (!roomImpure) {
         console.error(`[connectionReady] No room found for roomId: ${roomId}`);
         return;
+      }
+
+      const room: any = {
+        host: JSON.parse(roomImpure.host),
+      }
+
+      if (roomImpure.participant) {
+        room.participant = JSON.parse(roomImpure.participant);
       }
 
       if (userType === "participant") {
@@ -180,8 +196,15 @@ io.on("connection", (socket: Socket) => {
       });
 
       const email = jwt.email as string;
-      const roomId = (await RoomsInverse.findOne({ email }))?.roomId;
-      const room = await Room.findOne({ roomId });
+      const inverseRoom = JSON.parse((await redisClient.hGetAll("roomInverse"))[email]);
+      const roomId = inverseRoom.roomId;
+
+      const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
+
+      const room = {
+        host: JSON.parse(roomImpure.host),
+        participant: JSON.parse(roomImpure.participant)
+      }
 
       if (room) {
         const otherPeer =
@@ -211,8 +234,15 @@ io.on("connection", (socket: Socket) => {
       });
 
       const email = jwt.email as string;
-      const roomId = (await RoomsInverse.findOne({ email }))?.roomId;
-      const room = await Room.findOne({ roomId });
+      const inverseRoom = JSON.parse((await redisClient.hGetAll("roomInverse"))[email]);
+      const roomId = inverseRoom.roomId;
+
+      const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
+
+      const room = {
+        host: JSON.parse(roomImpure.host),
+        participant: JSON.parse(roomImpure.participant)
+      }
 
       if (room) {
         const otherPeer =
@@ -295,26 +325,41 @@ io.on("connection", (socket: Socket) => {
     console.log(`🔥: User disconnected [${socket.id}]`);
 
     try {
-      const found = await Room.findOneAndUpdate(
-        { "host.socketId": socket.id },
-        { $set: { "host.socketId": "" } },
-        { new: true },
-      );
+      // Look for the host with the matching socketId
+      const roomIds = await redisClient.keys('room:*'); // Get all room keys
+      let foundRoom = null;
 
-      console.log("[disconnect] Update result for host:", found);
-
-      if (found === null) {
-        const found = await Room.findOneAndUpdate(
-          { "participant.socketId": socket.id },
-          { $set: { "participant.socketId": "" } },
-          { new: true },
-        );
-        console.log("[disconnect] Update result for participant:", found);
+      for (const roomId of roomIds) {
+        const hostSocketId = await redisClient.hGet(roomId, 'host.socketId');
+        if (hostSocketId === socket.id) {
+          await redisClient.hSet(roomId, 'host.socketId', ''); // Remove the socketId
+          foundRoom = roomId;
+          break;
+        }
       }
 
-      console.log("[disconnect] SocketId deleted from database");
+      console.log("[disconnect] Update result for host:", foundRoom);
+
+      if (!foundRoom) {
+        // Look for the participant with the matching socketId
+        for (const roomId of roomIds) {
+          const participantSocketId = await redisClient.hGet(roomId, 'participant.socketId');
+          if (participantSocketId === socket.id) {
+            await redisClient.hSet(roomId, 'participant.socketId', ''); // Remove the socketId
+            foundRoom = roomId;
+            break;
+          }
+        }
+        console.log("[disconnect] Update result for participant:", foundRoom);
+      }
+
+      if (foundRoom) {
+        console.log("[disconnect] SocketId deleted from Redis");
+      } else {
+        console.log("[disconnect] No matching socketId found in Redis");
+      }
     } catch (err) {
-      console.error("[disconnect] Error updating socket id in database:", err);
+      console.error("[disconnect] Error updating socket id in Redis:", err);
     }
   });
 });
@@ -360,14 +405,18 @@ app.post("/joinRoom", async (req: Request, res: Response) => {
   console.log("[POST /joinRoom] Join room request received");
   const { roomId, token } = req.body;
 
-  const room = await Room.findOne({ roomId });
+  const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
 
-  if (!room || room.participant?.socketId) {
-    console.log("[POST /joinRoom] Room is full or doesn't exist");
+  if (!roomImpure) {
+    console.log("[POST /joinRoom] Room doesn't exist");
     res.status(409).json({
-      message: "room is full or doesn't exist",
+      message: "room doesn't exist",
     });
     return;
+  }
+
+  const room = {
+    host: JSON.parse(roomImpure.host)
   }
 
   try {
@@ -523,7 +572,9 @@ app.post("/verify_host", async (req: Request, res: Response) => {
       secretKey: process.env.CLERK_SECRET_KEY,
     });
     const email = jwt.email as string;
-    const inverseRooms = await redisClient.hGetAll("inverseRoom");
+    const inverseRooms = await redisClient.hGetAll("roomInverse")!;
+    console.log("inverseRooms: ", inverseRooms);
+    console.log("email: ", email);
     const room = inverseRooms[email];
 
     if (room) {

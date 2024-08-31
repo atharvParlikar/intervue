@@ -4,7 +4,8 @@ import { useCallback, useState, useRef, useEffect, useContext } from "react";
 import { socketContext } from "../socket";
 import { githubLight } from "@ddietr/codemirror-themes/github-light";
 import { Button } from "./ui/button";
-import { useUser, useAuth } from "@clerk/clerk-react";
+import { useUser } from "@clerk/clerk-react";
+import { AuthTokenContext } from "../contexts/authtoken-context";
 
 function Editor() {
   const [value, setValue] = useState<string>("");
@@ -12,7 +13,7 @@ function Editor() {
   const [parentHeight, setParentHeight] = useState(0);
   const socket = useContext(socketContext);
   const { user } = useUser();
-  const { getToken } = useAuth();
+  const token = useContext(AuthTokenContext);
 
   useEffect(() => {
     if (parentRef.current) {
@@ -33,7 +34,7 @@ function Editor() {
       JSON.stringify({
         val,
         email: user?.primaryEmailAddress?.emailAddress,
-        token: await getToken(),
+        token,
       }),
     );
   }, []);

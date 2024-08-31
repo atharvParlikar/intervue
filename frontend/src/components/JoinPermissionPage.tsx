@@ -3,38 +3,40 @@ import { Button } from "./ui/button";
 import { ToastContainer } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
-import { useAuth } from "@clerk/clerk-react";
 import { RightArrow } from "./ui/Svgs";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import Room from "./Room";
-import VideoSettingsContextProvider from "../contexts/video-settings";
+import { AuthTokenContext } from "../contexts/authtoken-context";
 
 function JoinPermissionPage() {
-  const { getToken } = useAuth();
   const { roomId } = useParams();
   const [renderRoom, setRenderRoom] = useState(false);
   const [isRenderResolved, setIsRenderResolved] = useState(false);
+  const token = useContext(AuthTokenContext);
+  console.log(token);
 
   useEffect(() => {
-    (async () => {
-      console.log("roomId := ", roomId);
-      const res = await axios.post("http://localhost:3000/verify_host", { token: await getToken({ template: "user" }) });
-      console.log(res.status, res.data);
-      if (res.data.isHost) {
-        setRenderRoom(true);
-      } else {
-        setRenderRoom(false);
-      }
-      setIsRenderResolved(true);
-    })();
-  }, []);
+    if (token) {
+      (async () => {
+        console.log("roomId := ", roomId);
+        const res = await axios.post("http://localhost:3000/verify_host", { token });
+        console.log(res.status, res.data);
+        if (res.data.isHost) {
+          setRenderRoom(true);
+        } else {
+          setRenderRoom(false);
+        }
+        setIsRenderResolved(true);
+      })();
+    }
+  }, [token]);
 
   const joinRoom = async () => {
     const res = await axios.post("http://localhost:3000/joinRoom", {
       roomId,
-      token: await getToken({ template: "user" })
+      token
     });
 
     if (res.status === 201) {

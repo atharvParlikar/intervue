@@ -4,15 +4,16 @@ import { Input } from "./ui/input";
 import { ToastContainer, toast } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
-import { useUser, useAuth } from "@clerk/clerk-react";
-import { useState } from "react";
+import { useUser } from "@clerk/clerk-react";
+import { useContext, useState } from "react";
 import axios from 'axios';
 import { FilmCamera, RightArrow } from "./ui/Svgs";
+import { AuthTokenContext } from "../contexts/authtoken-context";
 
 function Home() {
   const { isSignedIn, isLoaded } = useUser();
   const [code, setCode] = useState("");
-  const { getToken } = useAuth();
+  const token = useContext(AuthTokenContext);
 
 
   const generateRandomId = (): string => {
@@ -26,7 +27,7 @@ function Home() {
 
   const createRoom = async () => {
     const roomId = generateRandomId();
-    const response = await axios.post("http://localhost:3000/createRoom", { roomId, token: await getToken({ template: "user" }) });
+    const response = await axios.post("http://localhost:3000/createRoom", { roomId, token });
 
     if (response.status === 201) {
       joinRoom(roomId);

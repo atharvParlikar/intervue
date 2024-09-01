@@ -56,7 +56,7 @@ const objectMap = (obj: Object, fn: any) =>
     Object.entries(obj).map(
       ([k, v], i) => [k, fn(v, k, i)]
     )
-  )
+  );
 
 function emitAndWait<T>(
   socketId: string,
@@ -565,32 +565,58 @@ app.post("/set-socket", async (req: Request, res: Response) => {
 
 app.post("/verify_host", async (req: Request, res: Response) => {
   console.log("[POST /verify_host] Verify host request received");
-  const { token } = req.body;
+  const { token, roomId } = req.body;
 
   try {
+    // Verify the token to extract user information
     const jwt = await verifyToken(token, {
       secretKey: process.env.CLERK_SECRET_KEY,
     });
     const email = jwt.email as string;
-    const inverseRooms = await redisClient.hGetAll("roomInverse")!;
+
+    // Retrieve inverse room mapping from Redis
+    const inverseRooms = await redisClient.hGetAll("roomInverse");
     console.log("inverseRooms: ", inverseRooms);
     console.log("email: ", email);
-    const room = inverseRooms[email];
 
-    if (room) {
-      console.log(`[POST /verify_host] User ${email} verified as host`);
-      res.status(200).json({
-        isHost: true,
-      });
+    // Check if the user exists in the inverseRooms
+    const user = inverseRooms[email];
+
+    if (user) {
+      // Parse the user object
+      const userObj = JSON.parse(user);
+
+      // Check if the user is the host
+      if (userObj.userType === "host") {
+        console.log(`[POST /verify_host] User ${email} verified as host`);
+        return res.status(200).json({
+          renderJoinPage: false,
+        });
+      } else {
+        // User is not a host, check if the roomId matches
+        if (userObj.roomId === roomId) {
+          console.log(`[POST /verify_host] User ${email} is a participant in the room`);
+          return res.status(200).json({
+            renderJoinPage: false,
+          });
+        } else {
+          console.log(`[POST /verify_host] User ${email} is a participant in another room`);
+          return res.status(200).json({
+            renderJoinPage: true,
+            message: "Participant exists in some other room",
+          });
+        }
+      }
     } else {
-      console.log(`[POST /verify_host] User ${email} is not a host`);
-      res.status(200).json({
-        isHost: false,
+      // User does not exist in inverseRooms, needs to go to joinRoom screen
+      console.log(`[POST /verify_host] User ${email} not found in any room`);
+      return res.status(200).json({
+        renderJoinPage: true
       });
     }
   } catch (error) {
     console.error("[POST /verify_host] Error verifying host:", error);
-    res.status(500).json({
+    return res.status(500).json({
       message: "Error verifying host status",
     });
   }
@@ -605,10 +631,8 @@ server.listen(PORT, () => {
 
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
-  // Application specific logging, throwing an error, or other logic here
 });
 
 process.on("uncaughtException", (error) => {
   console.error("Uncaught Exception:", error);
-  // Application specific logging, throwing an error, or other logic here
 });

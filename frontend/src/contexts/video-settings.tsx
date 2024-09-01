@@ -2,7 +2,7 @@ import React, { createContext, useState } from "react";
 
 export interface VideoSettings {
   mic: boolean;
-  video: boolean;
+  camera: boolean;
 }
 
 interface VideoSettingsContextType {
@@ -10,9 +10,9 @@ interface VideoSettingsContextType {
   setVideoSettings: React.Dispatch<React.SetStateAction<VideoSettings>>;
 }
 
-const defaultSettings = { mic: true, video: true };
+const defaultSettings = { mic: true, camera: true };
 
-export const VideoSettingsContext = createContext<VideoSettingsContextType>(null);
+export const VideoSettingsContext = createContext<VideoSettingsContextType | null>(null);
 
 export default function VideoSettingsContextProvider({ children }: { children: React.ReactNode }) {
 

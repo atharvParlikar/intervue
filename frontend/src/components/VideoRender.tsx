@@ -43,9 +43,9 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
               onClick={() => setVideoSettings(x => ({ ...x, mic: !x.mic }))}
             />
             <IconButton
-              backgroundColor={videoSettings.video ? "#2b2d42" : "#ef233c"}
-              Icon={videoSettings.video ? VideocamOutlined : VideocamOffOutlined}
-              onClick={() => setVideoSettings(x => ({ ...x, video: !x.video }))}
+              backgroundColor={videoSettings.camera ? "#2b2d42" : "#ef233c"}
+              Icon={videoSettings.camera ? VideocamOutlined : VideocamOffOutlined}
+              onClick={() => setVideoSettings(x => ({ ...x, camera: !x.camera }))}
             />
           </div>
         </div>

@@ -20,6 +20,7 @@
     "@mui/material": "^6.0.1",
     "@radix-ui/react-slot": "^1.0.2",
     "@types/node": "^20.11.30",
+    "@types/peerjs": "^1.1.0",
     "@types/react-codemirror": "^1.0.11",
     "@types/react-resizable": "^3.0.8",
     "@types/simple-peer": "^9.11.8",

@@ -3,35 +3,41 @@ import { Button } from "./ui/button";
 import { ToastContainer } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
-import { RightArrow } from "./ui/Svgs";
-import { useContext, useEffect, useState } from "react";
+import { NavigateNext } from "@mui/icons-material";
+import { useContext, useEffect, useState, useRef } from "react";
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
 import Room from "./Room";
 import { AuthTokenContext } from "../contexts/authtoken-context";
+import { trpc } from "../client";
 
 function JoinPermissionPage() {
   const { roomId } = useParams();
-  const [renderRoom, setRenderRoom] = useState(false);
+  const [renderJoinRoom, setRenderJoinRoom] = useState(true);
   const [isRenderResolved, setIsRenderResolved] = useState(false);
   const token = useContext(AuthTokenContext);
-  console.log(token);
+  const localVideoStream = useRef<MediaStream | null>(null);
+  const localVideo = useRef<HTMLVideoElement | null>(null);
+
+  const res = trpc.veriftHost.useQuery({ roomId: roomId! });
 
   useEffect(() => {
-    if (token) {
-      (async () => {
-        console.log("roomId := ", roomId);
-        const res = await axios.post("http://localhost:3000/verify_host", { token });
-        console.log(res.status, res.data);
-        if (res.data.isHost) {
-          setRenderRoom(true);
-        } else {
-          setRenderRoom(false);
-        }
-        setIsRenderResolved(true);
-      })();
+    if (!res.isLoading) {
+      if (res.isError) {
+        console.error(": ", err);
+      }
+      setRenderJoinRoom(res.data?.renderJoinPage);
+      setIsRenderResolved(true);
     }
-  }, [token]);
+  }, [res.isLoading]);
+
+  useEffect(() => {
+    (async () => {
+      if (localVideo.current) {
+        localVideoStream.current = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localVideo.current.srcObject = localVideoStream.current;
+      }
+    })();
+  }, [localVideo.current]);
 
   const joinRoom = async () => {
     const res = await axios.post("http://localhost:3000/joinRoom", {
@@ -40,29 +46,33 @@ function JoinPermissionPage() {
     });
 
     if (res.status === 201) {
-      setRenderRoom(true);
+      setRenderJoinRoom(true);
     }
   }
+
+  const JoinPageComponent = () =>
+    <div className="flex h-screen w-screen items-center justify-center ">
+      <div>
+        <h1 className="font-thin text-3xl">Say hi to the camera ✨</h1>
+        <video ref={localVideo}></video>
+        <div className="mt-2 flex">
+          <div className="flex w-full max-w-sm items-center space-x-2">
+            <Button onClick={() => joinRoom()} className="px-4 py-8 bg-darkslategray">
+              <NavigateNext />
+              Join Room
+            </Button>
+          </div>
+        </div>
+      </div>
+      <ToastContainer />
+    </div>;
 
   return (
     <SignedIn>
       {
-        isRenderResolved ? (renderRoom ? <Room /> :
-          <div className="flex h-screen w-screen items-center justify-center ">
-            <div>
-              <h1 className="font-thin text-3xl">Say hi to the camera ✨</h1>
-              <Webcam className="rounded-lg w-full border-4 border-black drop-shadow-xl videoElement" />
-              <div className="mt-2 flex">
-                <div className="flex w-full max-w-sm items-center space-x-2">
-                  <Button onClick={() => joinRoom()}>
-                    <RightArrow />
-                    Join Room
-                  </Button>
-                </div>
-              </div>
-            </div>
-            <ToastContainer />
-          </div>) : <div>
+        isRenderResolved ? (renderJoinRoom ? <JoinPageComponent /> :
+          <Room />
+        ) : <div>
           Loading...
         </div>
       }

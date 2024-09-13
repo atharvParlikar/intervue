@@ -14,7 +14,7 @@ import { Button } from "./ui/button";
 import { useContext, useEffect, useState, useRef } from "react";
 import { socketContext } from "../socket";
 import { AuthTokenContext } from '../contexts/authtoken-context'
-import axios from "axios";
+import { trpc } from "../client";
 
 interface Sizes {
   width: number;
@@ -26,7 +26,12 @@ function Room() {
   const socket = useContext(socketContext);
   const [renderVideo, setRenderVideo] = useState(false);
   const userType = useRef<string | null>(null)
-  const token = useContext(AuthTokenContext);
+  const setSocketMutation = trpc.setSocket.useMutation({
+    onSuccess: (data) => {
+      userType.current = data.userType;
+      setRenderVideo(true);
+    }
+  });
 
   useEffect(() => {
     if (!socket.connected) {
@@ -36,16 +41,10 @@ function Room() {
 
 
   const setSocket = async () => {
-    const res = await axios.post("http://localhost:3000/set-socket", {
-      socketId: socket.id,
-      token,
-      roomId_: roomId
+    setSocketMutation.mutate({
+      socketId: socket.id!,
+      roomId_: roomId!
     });
-
-    if (res.status === 200) {
-      userType.current = res.data.userType;
-      setRenderVideo(true);
-    }
   }
 
   useEffect(() => {

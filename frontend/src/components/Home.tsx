@@ -1,20 +1,54 @@
-import Webcam from "react-webcam";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ToastContainer, toast } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
 import { useUser } from "@clerk/clerk-react";
-import { useContext, useState } from "react";
-import axios from 'axios';
-import { FilmCamera, RightArrow } from "./ui/Svgs";
-import { AuthTokenContext } from "../contexts/authtoken-context";
+import { useContext, useEffect, useRef, useState } from "react";
+import IconButton from "./ui/IconButton";
+import { Mic, MicOff, VideocamOutlined, VideocamOffOutlined, NavigateNext } from '@mui/icons-material';
+import { VideoSettingsContext } from "../contexts/video-settings";
+import { trpc } from "../client";
 
 function Home() {
   const { isSignedIn, isLoaded } = useUser();
   const [code, setCode] = useState("");
-  const token = useContext(AuthTokenContext);
+  const localVideo = useRef<HTMLVideoElement>(null!);
+  const localStream = useRef<MediaStream | null>(null);
+  const { videoSettings, setVideoSettings } = useContext(VideoSettingsContext);
 
+  useEffect(() => {
+    const setupStreams = async () => {
+      localStream.current = await navigator.mediaDevices.getUserMedia({ video: videoSettings.video, audio: videoSettings.mic });
+    }
+    setupStreams();
+  }, []);
+
+  useEffect(() => {
+    if (localVideo.current && localStream.current) {
+      console.log("Both are here bitch");
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(mediaStream => {
+        localVideo.current.srcObject = mediaStream;
+      })
+      localVideo.current.srcObject = localStream.current;
+    }
+  }, [localVideo.current, localStream.current]);
+
+  useEffect(() => {
+    if (localStream.current) {
+      localStream.current.getVideoTracks()[0].enabled = videoSettings.video;
+      localStream.current.getAudioTracks()[0].enabled = videoSettings.mic;
+    }
+  }, [videoSettings]);
+
+  const createRoomMutation = trpc.createRoom.useMutation({
+    onSuccess: (data) => {
+      window.location.replace("http://localhost:5173/room/" + data.roomId);
+    },
+    onError: (error) => {
+      console.error("ERROR: ", error);
+    }
+  });
 
   const generateRandomId = (): string => {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
@@ -25,19 +59,13 @@ function Home() {
     return id;
   }
 
+
   const createRoom = async () => {
     const roomId = generateRandomId();
-    const response = await axios.post("http://localhost:3000/createRoom", { roomId, token });
-
-    if (response.status === 201) {
-      joinRoom(roomId);
-    } else {
-      toast("Internal Server error", { type: "error", pauseOnHover: false });
-    }
+    createRoomMutation.mutate({ roomId });
   };
 
   const joinRoom = (roomId: string) => {
-    window.location.replace("http://localhost:5173/room/" + roomId);
   };
 
   if (isLoaded) {
@@ -50,29 +78,54 @@ function Home() {
     return null;
   }
 
+
   return (
     <SignedIn>
-      <div className="flex h-screen w-screen items-center justify-center ">
-        <div>
-          <h1 className="font-thin text-3xl">Say hi to the camera ✨</h1>
-          <Webcam className="rounded-lg w-full border-4 border-black drop-shadow-xl videoElement" />
-          <div className="mt-2 flex">
-            <Button className="mr-3" onClick={createRoom}>
-              <FilmCamera />
-              Create Room
-            </Button>
-
-            <div className="flex w-full max-w-sm items-center space-x-2">
-              <Input
-                onChange={(e) => setCode(e.target.value)}
-                value={code}
-                placeholder="Code"
-              />
-              <Button onClick={() => joinRoom(code)}>
-                <RightArrow />
-                Join Room
-              </Button>
+      <div className="flex flex-col h-screen w-screen items-center justify-center bg-whitesmoke">
+        <div className="drop-shadow-lg mb-6">
+          <div className="relative group w-full h-full">
+            <video
+              ref={localVideo}
+              className="object-cover rounded-xl videoElement border-2 border-black"
+              autoPlay
+              muted
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center">
+              <div className="flex space-x-4 mb-4">
+                <IconButton
+                  backgroundColor={videoSettings.mic ? "#2b2d42" : "#ef233c"}
+                  Icon={videoSettings.mic ? Mic : MicOff}
+                  onClick={() => setVideoSettings(x => ({ ...x, mic: !x.mic }))}
+                />
+                <IconButton
+                  backgroundColor={videoSettings.video ? "#2b2d42" : "#ef233c"}
+                  Icon={videoSettings.video ? VideocamOutlined : VideocamOffOutlined}
+                  onClick={() => setVideoSettings(x => ({ ...x, video: !x.video }))}
+                />
+              </div>
             </div>
+          </div>
+        </div>
+
+        <div className="flex justify-between">
+          <Button className="px-4 py-8 bg-darkslategray" onClick={createRoom}>
+            <VideocamOutlined className="mr-2" />
+            Create Room
+          </Button>
+
+          <div className="mx-4 w-[2px] border border-gray-400 drop-shadow-md" />
+
+          <div className="flex w-full max-w-sm items-center space-x-2">
+            <Input
+              onChange={(e) => setCode(e.target.value)}
+              value={code}
+              placeholder="Code"
+              className="py-8 w-80 border border-gray-400 drop-shadow-md px-4"
+            />
+            <Button onClick={() => joinRoom(code)} className="px-4 py-8 bg-darkslategray">
+              <NavigateNext />
+              Join Room
+            </Button>
           </div>
         </div>
         <ToastContainer />

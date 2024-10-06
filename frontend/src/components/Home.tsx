@@ -6,7 +6,13 @@ import { SignedIn } from "@clerk/clerk-react";
 import { useUser } from "@clerk/clerk-react";
 import { useContext, useEffect, useRef, useState } from "react";
 import IconButton from "./ui/IconButton";
-import { Mic, MicOff, VideocamOutlined, VideocamOffOutlined, NavigateNext } from '@mui/icons-material';
+import {
+  Mic,
+  MicOff,
+  VideocamOutlined,
+  VideocamOffOutlined,
+  NavigateNext,
+} from "@mui/icons-material";
 import { VideoSettingsContext } from "../contexts/video-settings";
 import { trpc } from "../client";
 
@@ -19,17 +25,23 @@ function Home() {
 
   useEffect(() => {
     const setupStreams = async () => {
-      localStream.current = await navigator.mediaDevices.getUserMedia({ video: videoSettings.video, audio: videoSettings.mic });
-    }
+      localStream.current = await navigator.mediaDevices.getUserMedia({
+        video: videoSettings.video,
+        audio: videoSettings.mic,
+      });
+    };
+
     setupStreams();
   }, []);
 
   useEffect(() => {
     if (localVideo.current && localStream.current) {
       console.log("Both are here bitch");
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(mediaStream => {
-        localVideo.current.srcObject = mediaStream;
-      })
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((mediaStream) => {
+          localVideo.current.srcObject = mediaStream;
+        });
       localVideo.current.srcObject = localStream.current;
     }
   }, [localVideo.current, localStream.current]);
@@ -47,25 +59,21 @@ function Home() {
     },
     onError: (error) => {
       console.error("ERROR: ", error);
-    }
+    },
   });
 
   const generateRandomId = (): string => {
-    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-    let id = '';
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    let id = "";
     for (let i = 0; i < 4; i++) {
       id += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     return id;
-  }
-
+  };
 
   const createRoom = async () => {
     const roomId = generateRandomId();
     createRoomMutation.mutate({ roomId });
-  };
-
-  const joinRoom = (roomId: string) => {
   };
 
   if (isLoaded) {
@@ -77,7 +85,6 @@ function Home() {
   } else {
     return null;
   }
-
 
   return (
     <SignedIn>
@@ -95,12 +102,18 @@ function Home() {
                 <IconButton
                   backgroundColor={videoSettings.mic ? "#2b2d42" : "#ef233c"}
                   Icon={videoSettings.mic ? Mic : MicOff}
-                  onClick={() => setVideoSettings(x => ({ ...x, mic: !x.mic }))}
+                  onClick={() =>
+                    setVideoSettings((x) => ({ ...x, mic: !x.mic }))
+                  }
                 />
                 <IconButton
                   backgroundColor={videoSettings.video ? "#2b2d42" : "#ef233c"}
-                  Icon={videoSettings.video ? VideocamOutlined : VideocamOffOutlined}
-                  onClick={() => setVideoSettings(x => ({ ...x, video: !x.video }))}
+                  Icon={
+                    videoSettings.video ? VideocamOutlined : VideocamOffOutlined
+                  }
+                  onClick={() =>
+                    setVideoSettings((x) => ({ ...x, video: !x.video }))
+                  }
                 />
               </div>
             </div>
@@ -122,7 +135,7 @@ function Home() {
               placeholder="Code"
               className="py-8 w-80 border border-gray-400 drop-shadow-md px-4"
             />
-            <Button onClick={() => joinRoom(code)} className="px-4 py-8 bg-darkslategray">
+            <Button onClick={() => {}} className="px-4 py-8 bg-darkslategray">
               <NavigateNext />
               Join Room
             </Button>

@@ -1,18 +1,53 @@
 import "./App.css";
-import { trpc } from "./utils/trpc";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Home from "./components/Home";
+import Home_ from "./components/Home_";
 import JoinPermissionPage from "./components/JoinPermissionPage";
 import SignInPage from "./components/SignInPage";
 import SignUpPage from "./components/SignUpPage";
 import VideoSettingsContextProvider from "./contexts/video-settings";
-import AuthTokenContextProvider from "./contexts/authtoken-context";
-import { trpcClient } from "./client";
+import { trpc, trpcClient } from "./client";
+import { useAuth } from "@clerk/clerk-react";
+import { useMemo } from "react";
 
 const queryClient = new QueryClient();
 
 function App() {
+  const { getToken } = useAuth();
+
+  console.log("App rendered");
+
+  const isTokenExpired = (token: string) => {
+    if (!token) return true;
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1])); // Decode JWT payload
+      const expiryTime = payload.exp * 1000; // Convert exp to milliseconds
+      return Date.now() >= expiryTime;
+    } catch (err) {
+      console.error("Error decoding token:", err);
+      return true; // If there's an error decoding, assume token is expired
+    }
+  };
+
+  useMemo(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token || isTokenExpired(token)) {
+      getToken({ template: "user" })
+        .then((newToken) => {
+          if (newToken) {
+            console.log("Got token");
+            localStorage.setItem("token", newToken);
+          }
+        })
+        .catch((err) => {
+          // TODO: Handel token retreval error better, like logging out and redirecting to login page.
+          console.error("Error getting token:", err);
+        });
+    }
+  }, [getToken]);
+
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
@@ -21,21 +56,17 @@ function App() {
             <Route
               path="room/:roomId"
               element={
-                <AuthTokenContextProvider>
-                  <VideoSettingsContextProvider>
-                    <JoinPermissionPage />
-                  </VideoSettingsContextProvider>
-                </AuthTokenContextProvider>
+                <VideoSettingsContextProvider>
+                  <JoinPermissionPage />
+                </VideoSettingsContextProvider>
               }
             />
             <Route
               path="/"
               element={
-                <AuthTokenContextProvider>
-                  <VideoSettingsContextProvider>
-                    <Home />
-                  </VideoSettingsContextProvider>
-                </AuthTokenContextProvider>
+                <VideoSettingsContextProvider>
+                  <Home_ />
+                </VideoSettingsContextProvider>
               }
             />
             <Route path="/sign-in" element={<SignInPage />} />

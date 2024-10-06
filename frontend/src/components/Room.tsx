@@ -1,10 +1,9 @@
 import "../App.css";
 import WebRTCWrapper from "./WebRTCWrapper";
-import Editor from "./Editor";
 import Output from "./Output";
 
-import { ResizableBox } from 'react-resizable';
-import 'react-resizable/css/styles.css';
+import { ResizableBox } from "react-resizable";
+import "react-resizable/css/styles.css";
 
 import { useParams } from "react-router-dom";
 import { SignedIn } from "@clerk/clerk-react";
@@ -13,8 +12,8 @@ import "react-toastify/dist/ReactToastify.css";
 import { Button } from "./ui/button";
 import { useContext, useEffect, useState, useRef } from "react";
 import { socketContext } from "../socket";
-import { AuthTokenContext } from '../contexts/authtoken-context'
 import { trpc } from "../client";
+import Editor from "./Editor";
 
 interface Sizes {
   width: number;
@@ -25,27 +24,27 @@ function Room() {
   const { roomId } = useParams();
   const socket = useContext(socketContext);
   const [renderVideo, setRenderVideo] = useState(false);
-  const userType = useRef<string | null>(null)
+  const userType = useRef<string | null>(null);
   const setSocketMutation = trpc.setSocket.useMutation({
     onSuccess: (data) => {
       userType.current = data.userType;
       setRenderVideo(true);
-    }
+    },
   });
 
   useEffect(() => {
     if (!socket.connected) {
       socket.connect();
+      console.log("socket connected");
     }
   }, [socket]);
-
 
   const setSocket = async () => {
     setSocketMutation.mutate({
       socketId: socket.id!,
-      roomId_: roomId!
+      roomId_: roomId!,
     });
-  }
+  };
 
   useEffect(() => {
     socket.on("connect", () => {
@@ -56,20 +55,21 @@ function Room() {
         const user = JSON.parse(userObject);
         notify(user, callback);
       });
-
     });
 
     return () => {
       socket.off("connect");
       socket.off("notify");
-    }
+    };
   }, []);
 
-
-  const notify = (user: {
-    email: string;
-    firstName: string;
-  }, callback: any) =>
+  const notify = (
+    user: {
+      email: string;
+      firstName: string;
+    },
+    callback: (arg0: boolean) => void,
+  ) =>
     toast(
       <div>
         <p className="mb-2">{user.email} is trying to join the meeting.</p>
@@ -81,10 +81,14 @@ function Room() {
         >
           Allow
         </Button>
-      </div>
+      </div>,
     );
 
-  const [sizes, setSizes] = useState<{ editor: Sizes; output: Sizes; video: Sizes }>({
+  const [sizes, setSizes] = useState<{
+    editor: Sizes;
+    output: Sizes;
+    video: Sizes;
+  }>({
     editor: { width: 0, height: 0 },
     output: { width: 0, height: 0 },
     video: { width: 0, height: 0 },
@@ -104,22 +108,26 @@ function Room() {
       const newTotalWidth = window.innerWidth;
       const newTotalHeight = window.innerHeight;
 
-      setSizes(_ => ({
+      setSizes(() => ({
         editor: { width: newTotalWidth * 0.5, height: newTotalHeight },
         output: { width: newTotalWidth * 0.5, height: newTotalHeight * 0.5 },
         video: { width: newTotalWidth * 0.5, height: newTotalHeight * 0.5 },
       }));
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const handleResize = (key: 'editor' | 'output' | 'video', newWidth: number, newHeight: number) => {
+  const handleResize = (
+    key: "editor" | "output" | "video",
+    newWidth: number,
+    newHeight: number,
+  ) => {
     const totalWidth = window.innerWidth;
     const totalHeight = window.innerHeight;
 
-    if (key === 'editor') {
+    if (key === "editor") {
       const remainingWidth = totalWidth - newWidth;
 
       setSizes({
@@ -130,11 +138,17 @@ function Room() {
     } else {
       const otherHeight = totalHeight - newHeight;
 
-      setSizes(prevSizes => ({
+      setSizes((prevSizes) => ({
         ...prevSizes,
         [key]: { ...prevSizes[key], height: newHeight },
-        output: key === 'output' ? { ...prevSizes.output, height: newHeight } : { ...prevSizes.output, height: otherHeight },
-        video: key === 'video' ? { ...prevSizes.video, height: newHeight } : { ...prevSizes.video, height: otherHeight },
+        output:
+          key === "output"
+            ? { ...prevSizes.output, height: newHeight }
+            : { ...prevSizes.output, height: otherHeight },
+        video:
+          key === "video"
+            ? { ...prevSizes.video, height: newHeight }
+            : { ...prevSizes.video, height: otherHeight },
       }));
     }
   };
@@ -146,8 +160,13 @@ function Room() {
           width={sizes.editor.width}
           height={sizes.editor.height}
           minConstraints={[100, 100]}
-          maxConstraints={[sizes.editor.width + sizes.output.width, sizes.editor.height]}
-          onResizeStop={(_, { size }) => handleResize('editor', size.width, size.height)}
+          maxConstraints={[
+            sizes.editor.width + sizes.output.width,
+            sizes.editor.height,
+          ]}
+          onResizeStop={(_, { size }) =>
+            handleResize("editor", size.width, size.height)
+          }
           className="border box-border overflow-auto rounded-md bg-gray-100 h-full"
         >
           <Editor />
@@ -157,8 +176,13 @@ function Room() {
             width={sizes.output.width}
             height={sizes.output.height}
             minConstraints={[100, 100]}
-            maxConstraints={[sizes.output.width, sizes.output.height + sizes.video.height]}
-            onResizeStop={(_, { size }) => handleResize('output', size.width, size.height)}
+            maxConstraints={[
+              sizes.output.width,
+              sizes.output.height + sizes.video.height,
+            ]}
+            onResizeStop={(_, { size }) =>
+              handleResize("output", size.width, size.height)
+            }
             className="border box-border overflow-auto rounded-md bg-blue-300"
           >
             <Output />
@@ -167,13 +191,19 @@ function Room() {
             width={sizes.video.width}
             height={sizes.video.height}
             minConstraints={[100, 100]}
-            maxConstraints={[sizes.video.width, sizes.output.height + sizes.video.height]}
-            onResizeStop={(_, { size }) => handleResize('video', size.width, size.height)}
+            maxConstraints={[
+              sizes.video.width,
+              sizes.output.height + sizes.video.height,
+            ]}
+            onResizeStop={(_, { size }) =>
+              handleResize("video", size.width, size.height)
+            }
             className="border box-border overflow-auto rounded-md bg-green-300"
           >
-            {renderVideo && userType.current && (
-              <WebRTCWrapper userType={userType.current} />
-            )}
+            {/* {renderVideo && userType.current && ( */}
+            {/*   <WebRTCWrapper userType={userType.current} /> */}
+            {/* )} */}
+            <div></div>
           </ResizableBox>
         </div>
       </div>

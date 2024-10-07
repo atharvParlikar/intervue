@@ -13,6 +13,9 @@
     "@clerk/clerk-js": "^5.20.0",
     "@clerk/clerk-react": "^4.30.9",
     "@codemirror/basic-setup": "^0.20.0",
+    "@codemirror/lang-javascript": "^6.2.2",
+    "@codemirror/lang-python": "^6.1.6",
+    "@codemirror/theme-one-dark": "^6.1.2",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@mui/icons-material": "^6.0.1",
@@ -33,6 +36,7 @@
     "axios": "^1.7.4",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
+    "codemirror": "^6.0.1",
     "events": "^3.3.0",
     "js-cookie": "^3.0.5",
     "lib0": "^0.2.98",
@@ -66,5 +70,8 @@
     "eslint-plugin-react-refresh": "^0.4.6",
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
+  },
+  "resolutions": {
+    "@codemirror/state": "6.4.1"
   }
 }

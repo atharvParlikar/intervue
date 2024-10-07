@@ -1,4 +1,4 @@
-import express, { Request, Response } from "express";
+import express, { Request, Response, NextFunction } from "express";
 import http from "http";
 import cors from "cors";
 import { Socket, Server as SocketServer } from "socket.io";
@@ -58,6 +58,22 @@ const objectMap = (obj: Object, fn: any) =>
     )
   );
 
+
+const errorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ message: "Internal Server Error", error: err.message });
+};
+
+const validateInput = (schema: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const { error } = schema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ message: "Invalid input", error: error.details[0].message });
+    }
+    next();
+  };
+};
+
 function emitAndWait<T>(
   socketId: string,
   eventName: string,
@@ -79,6 +95,36 @@ function emitAndWait<T>(
   });
 }
 
+async function updateRoomParticipant(roomId: string, participant: any) {
+  try {
+    await redisClient.hSet(`room:${roomId}`, "participant", JSON.stringify(participant));
+    await redisClient.hSet("roomInverse", participant.email, JSON.stringify({ roomId, userType: "participant" }));
+  } catch (error) {
+    console.error("[updateRoomParticipant] Error:", error);
+    throw new Error("Failed to update room participant");
+  }
+}
+
+async function handleDisconnect(socketId: string) {
+  try {
+    const roomKeys = await redisClient.keys('room:*');
+    for (const roomKey of roomKeys) {
+      const room = await redisClient.hGetAll(roomKey);
+      if (JSON.parse(room.host).socketId === socketId) {
+        await redisClient.hSet(roomKey, "host", JSON.stringify({ ...JSON.parse(room.host), socketId: '' }));
+        break;
+      }
+      if (room.participant && JSON.parse(room.participant).socketId === socketId) {
+        await redisClient.hSet(roomKey, "participant", JSON.stringify({ ...JSON.parse(room.participant), socketId: '' }));
+        break;
+      }
+    }
+  } catch (error) {
+    console.error("[handleDisconnect] Error:", error);
+    throw new Error("Failed to handle disconnect");
+  }
+}
+
 io.on("connection", (socket: Socket) => {
   console.log(`⚡: ${socket.id} user just connected`);
 
@@ -86,14 +132,15 @@ io.on("connection", (socket: Socket) => {
     console.log(`[message] Received message from ${socket.id}:`, message);
   });
 
-  socket.on("acceptJoin", (userObject: string) => {
-    const { roomId, socketId, email, firstName } = JSON.parse(userObject);
-    console.log(`[acceptJoin] User ${email} accepted to join room ${roomId}`);
-    rooms[roomId].participant = { email, socketId, firstName };
-    roomsInverse[email] = roomId;
-    roomsInverseSocket[socketId] = roomId;
-    io.to(socketId).emit("joinSuccess");
-    console.log(`[acceptJoin] Join success emitted to ${socketId}`);
+  socket.on("acceptJoin", async (userObject: string) => {
+    try {
+      const { roomId, socketId, email, firstName } = JSON.parse(userObject);
+      await updateRoomParticipant(roomId, { email, socketId, firstName });
+      io.to(socketId).emit("joinSuccess");
+    } catch (error) {
+      console.error("[acceptJoin] Error:", error);
+      socket.emit("error", "Failed to accept join request");
+    }
   });
 
   socket.on("connectionReady", async (connectionObject) => {
@@ -322,44 +369,10 @@ io.on("connection", (socket: Socket) => {
   });
 
   socket.on("disconnect", async () => {
-    console.log(`🔥: User disconnected [${socket.id}]`);
-
     try {
-      // Look for the host with the matching socketId
-      const roomIds = await redisClient.keys('room:*'); // Get all room keys
-      let foundRoom = null;
-
-      for (const roomId of roomIds) {
-        const hostSocketId = await redisClient.hGet(roomId, 'host.socketId');
-        if (hostSocketId === socket.id) {
-          await redisClient.hSet(roomId, 'host.socketId', ''); // Remove the socketId
-          foundRoom = roomId;
-          break;
-        }
-      }
-
-      console.log("[disconnect] Update result for host:", foundRoom);
-
-      if (!foundRoom) {
-        // Look for the participant with the matching socketId
-        for (const roomId of roomIds) {
-          const participantSocketId = await redisClient.hGet(roomId, 'participant.socketId');
-          if (participantSocketId === socket.id) {
-            await redisClient.hSet(roomId, 'participant.socketId', ''); // Remove the socketId
-            foundRoom = roomId;
-            break;
-          }
-        }
-        console.log("[disconnect] Update result for participant:", foundRoom);
-      }
-
-      if (foundRoom) {
-        console.log("[disconnect] SocketId deleted from Redis");
-      } else {
-        console.log("[disconnect] No matching socketId found in Redis");
-      }
-    } catch (err) {
-      console.error("[disconnect] Error updating socket id in Redis:", err);
+      await handleDisconnect(socket.id);
+    } catch (error) {
+      console.error("[disconnect] Error:", error);
     }
   });
 });
@@ -398,6 +411,41 @@ app.post("/createRoom", async (req: Request, res: Response) => {
   } catch (e) {
     console.error("[POST /createRoom] Error creating room:", e);
     res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+app.post("/createRoom", validateInput(createRoomSchema), async (req: Request, res: Response) => {
+  const { roomId, token } = req.body;
+  try {
+    const jwt = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+    const { email, firstName } = jwt;
+    await redisClient.hSet(`room:${roomId}`, "host", JSON.stringify({ email, firstName }));
+    await redisClient.hSet("roomInverse", email, JSON.stringify({ roomId, userType: "host" }));
+    res.status(201).json({ message: "Room created successfully", room: roomId });
+  } catch (error) {
+    console.error("[POST /createRoom] Error:", error);
+    res.status(500).json({ message: "Failed to create room" });
+  }
+});
+
+app.post("/joinRoom", validateInput(joinRoomSchema), async (req: Request, res: Response) => {
+  const { roomId, token } = req.body;
+  try {
+    const room = await redisClient.hGetAll(`room:${roomId}`);
+    if (!room.host) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+    const jwt = await verifyToken(token, { secretKey: process.env.CLERK_SECRET_KEY });
+    const { email, firstName } = jwt;
+    const hostResponse = await notifyHost(JSON.parse(room.host).socketId, { email, firstName });
+    if (!hostResponse) {
+      return res.status(409).json({ message: "Host denied access" });
+    }
+    await updateRoomParticipant(roomId, { email, firstName });
+    res.status(200).json({ message: "Joined room successfully", room: roomId });
+  } catch (error) {
+    console.error("[POST /joinRoom] Error:", error);
+    res.status(500).json({ message: "Failed to join room" });
   }
 });
 
@@ -494,7 +542,13 @@ app.post("/set-socket", async (req: Request, res: Response) => {
     const email = jwt.email as string;
 
     const inverseRooms = await redisClient.hGetAll("roomInverse");
-    const inverseRoom = JSON.parse(inverseRooms[email]);
+    let inverseRoom: any;
+
+    try {
+      inverseRoom = JSON.parse(inverseRooms[email]);
+    } catch {
+      inverseRoom = null;
+    }
 
     const roomId = inverseRoom !== null ? inverseRoom.roomId : roomId_;
 

@@ -4,55 +4,28 @@ import { EditorState } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { EditorView, basicSetup } from "codemirror";
 import { javascript } from "@codemirror/lang-javascript";
+import { python } from "@codemirror/lang-python";
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
-import { Button } from "@mui/material";
 import { socketContext } from "../socket";
+import { tokyoNight } from "@uiw/codemirror-theme-tokyo-night";
 
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
 import { WebrtcProvider } from "y-webrtc";
+import { useStore } from "../contexts/zustandStore";
 
 const Editor: React.FC = () => {
   const editor = useRef<null | HTMLDivElement>(null);
-  const [code, setCode] = useState("");
-  const [cursorPosition, setCursorPosition] = useState(0);
   const socket = useContext(socketContext);
   const viewRef = useRef<EditorView | null>(null);
   const shouldEmit = useRef(true);
+  const { code, updateCode } = useStore();
 
   const onUpdate = EditorView.updateListener.of((v) => {
-    console.log("[onUpdate] got update: ", v);
-    if (
-      (code !== v.state.doc.toString() ||
-        v.state.selection.main.head !== cursorPosition) &&
-      shouldEmit.current
-    ) {
-      setCode(v.state.doc.toString());
-      setCursorPosition(v.state.selection.main.head);
-      // socket.emit(
-      //   "editor-val",
-      //   JSON.stringify({
-      //     val: viewRef.current?.state.doc.toString(),
-      //     token: localStorage.getItem("token"),
-      //     cursor: viewRef.current?.state.selection.main.head,
-      //   }),
-      // );
+    if (code !== v.state.doc.toString()) {
+      updateCode(v.state.doc.toString());
     }
-    // shouldEmit.current = true;
   });
-
-  // useEffect(() => {
-  //   if (viewRef.current && socket) {
-  //     // socket.emit(
-  //     //   "editor-val",
-  //     //   JSON.stringify({
-  //     //     val: viewRef.current.state.doc.toString(),
-  //     //     token: localStorage.getItem("token"),
-  //     //     cursor: viewRef.current.state.selection.main.head,
-  //     //   }),
-  //     // );
-  //   }
-  // }, [code, cursorPosition, socket]);
 
   useEffect(() => {
     if (!editor.current) return;
@@ -67,7 +40,7 @@ const Editor: React.FC = () => {
     const color = "#ff0000";
 
     provider.awareness.setLocalStateField("user", {
-      name: "Anonymous " + Math.floor(Math.random() * 1000),
+      name: "atharv",
       color,
       colorLight: "#ffffff",
     });
@@ -77,7 +50,9 @@ const Editor: React.FC = () => {
       extensions: [
         basicSetup,
         keymap.of([defaultKeymap, indentWithTab]),
-        javascript(),
+        python(),
+        onUpdate,
+        tokyoNight,
         yCollab(ytext, provider.awareness, { undoManager }),
       ],
     });
@@ -102,7 +77,7 @@ const Editor: React.FC = () => {
     if (socket) {
       socket.on("editor-val", (valObject: string) => {
         console.log("[editor-val] got valObject: ", valObject);
-        const { val, cursor } = JSON.parse(valObject);
+        const { val } = JSON.parse(valObject);
         viewRef.current?.dispatch({
           changes: {
             from: 0,
@@ -120,9 +95,9 @@ const Editor: React.FC = () => {
   }, [socket]);
 
   return (
-    <div>
+    <div className={`h-full bg-tokyonightBase`}>
       <div ref={editor}></div>
-      <Button onClick={() => console.log(code)}>Click me</Button>
+      {/* <Button onClick={() => console.log(code)}>Click me</Button> */}
     </div>
   );
 };

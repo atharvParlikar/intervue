@@ -17,7 +17,7 @@ export default function Output() {
   const lines = output.output.split("\n");
 
   return (
-    <div className="h-full w-full rounded-lg bg-slate-900 font-mono text-gray-200 p-3 flex drop-shadow-lg">
+    <div className="h-full w-full bg-slate-900 font-mono text-gray-200 p-3 flex drop-shadow-lg">
       <div className="mr-3 h-fit">{"out$"}</div>
       <div className="flex-col h-fit">
         {output.output !== "" &&

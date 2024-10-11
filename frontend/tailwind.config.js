@@ -2,10 +2,10 @@
 module.exports = {
   darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}',
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
   ],
   prefix: "",
   theme: {
@@ -18,6 +18,7 @@ module.exports = {
     },
     extend: {
       colors: {
+        tokyonightBase: "#1A1B26",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -51,10 +52,10 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        "whitesmoke": "#edf2f4",
-        "darkslategray": "#2b2d42",
-        "white": "#fff",
-        "lightslategray": "#8d99ae"
+        whitesmoke: "#edf2f4",
+        darkslategray: "#2b2d42",
+        white: "#fff",
+        lightslategray: "#8d99ae",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -78,4 +79,4 @@ module.exports = {
     },
   },
   plugins: [require("tailwindcss-animate")],
-}
+};

@@ -91,7 +91,9 @@ function JoinPermissionPage() {
         renderJoinRoom ? (
           <JoinPageComponent />
         ) : (
-          <Room />
+          <div>
+            <Room />
+          </div>
         )
       ) : (
         <div>Loading...</div>

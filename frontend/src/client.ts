@@ -7,7 +7,7 @@ export const trpc = createTRPCReact<AppRouter>();
 export const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: "http://localhost:3000/trpc",
+      url: import.meta.env.VITE_TRPC_ENDPOINT,
       async headers() {
         try {
           // TODO: handle case where token is not set or is expired

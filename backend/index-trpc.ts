@@ -13,7 +13,8 @@ import { privateProcedure, publicProcedure, router } from "./trpc";
 import { Socket, Server } from "socket.io";
 import { createContext } from "./context";
 import redisClient from "./redis";
-import { socketEvents } from "./socketEvents";
+import { getRoom, getRoomId, socketEvents } from "./socketEvents";
+import { spawn } from "child_process";
 
 configDotenv();
 
@@ -312,6 +313,77 @@ const appRouter = router({
           renderJoinPage: true,
         };
       }
+    }),
+  runCode: privateProcedure
+    .input(
+      z.object({
+        code: z.string(),
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { code } = input;
+
+      const { email } = ctx;
+
+      const roomId = await getRoomId(email);
+      if (!roomId) return;
+
+      let output = "";
+
+      const pythonProcess = spawn("docker", [
+        "run",
+        "python",
+        "python",
+        "-c",
+        code,
+      ]);
+
+      pythonProcess.stdout.on("data", (data) => {
+        output += data.toString();
+      });
+
+      pythonProcess.on("close", async (code) => {
+        console.log(`[run-code] Python process exited with code ${code}`);
+        console.log("[run-code] Output:", output);
+
+        const roomId = await getRoomId(email);
+        if (!roomId) return;
+
+        const room = await getRoom(roomId);
+
+        if (!room) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Room not found",
+          });
+        }
+
+        const host = room.host.socketId;
+
+        if (!host) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "host not in room",
+          });
+        }
+
+        if (!room.participant) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "participant not in room",
+          });
+        }
+
+        const participant = room.participant.socketId;
+        console.log(
+          `[run-code] Emitting output to host ${host} and participant ${participant}`,
+        );
+        io.to(host).emit("output", JSON.stringify({ code, output }));
+        io.to(participant!).emit("output", JSON.stringify({ code, output }));
+        return {
+          result: "yo done",
+        };
+      });
     }),
 });
 

@@ -34,7 +34,7 @@ async function handleDisconnect(socketId: string) {
   }
 }
 
-const getRoomId = async (email: string): Promise<string | null> => {
+export const getRoomId = async (email: string): Promise<string | null> => {
   const inverseRooms = await redisClient.hGetAll("roomInverse");
   const inverseRoom = JSON.parse(inverseRooms[email]);
   if (!inverseRoom) {
@@ -48,7 +48,7 @@ const getRoomId = async (email: string): Promise<string | null> => {
   return roomId;
 };
 
-const getRoom = async (roomId: string): Promise<Room | null> => {
+export const getRoom = async (roomId: string): Promise<Room | null> => {
   const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
 
   if (!roomImpure) {

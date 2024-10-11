@@ -14,6 +14,7 @@ import { useContext, useEffect, useState, useRef } from "react";
 import { socketContext } from "../socket";
 import { trpc } from "../client";
 import Editor from "./Editor";
+import { useStore } from "../contexts/zustandStore";
 
 interface Sizes {
   width: number;
@@ -25,10 +26,17 @@ function Room() {
   const socket = useContext(socketContext);
   const [renderVideo, setRenderVideo] = useState(false);
   const userType = useRef<string | null>(null);
+  const { code } = useStore();
   const setSocketMutation = trpc.setSocket.useMutation({
     onSuccess: (data) => {
       userType.current = data.userType;
       setRenderVideo(true);
+    },
+  });
+
+  const runCodeMutation = trpc.runCode.useMutation({
+    onSuccess: (data) => {
+      console.log("run code success", data);
     },
   });
 
@@ -155,7 +163,16 @@ function Room() {
 
   return (
     <SignedIn>
-      <div className="flex h-screen w-screen gap-2">
+      <Button
+        onClick={() =>
+          runCodeMutation.mutate({
+            code,
+          })
+        }
+      >
+        Run code
+      </Button>
+      <div className="flex h-screen w-screen">
         <ResizableBox
           width={sizes.editor.width}
           height={sizes.editor.height}
@@ -167,11 +184,11 @@ function Room() {
           onResizeStop={(_, { size }) =>
             handleResize("editor", size.width, size.height)
           }
-          className="border box-border overflow-auto rounded-md bg-gray-100 h-full"
+          className="border box-border overflow-auto  h-full "
         >
           <Editor />
         </ResizableBox>
-        <div className="flex flex-col flex-1 gap-2">
+        <div className="flex flex-col flex-1">
           <ResizableBox
             width={sizes.output.width}
             height={sizes.output.height}
@@ -183,7 +200,7 @@ function Room() {
             onResizeStop={(_, { size }) =>
               handleResize("output", size.width, size.height)
             }
-            className="border box-border overflow-auto rounded-md bg-blue-300"
+            className="border box-border overflow-auto  bg-blue-300"
           >
             <Output />
           </ResizableBox>
@@ -198,7 +215,7 @@ function Room() {
             onResizeStop={(_, { size }) =>
               handleResize("video", size.width, size.height)
             }
-            className="border box-border overflow-auto rounded-md bg-green-300"
+            className="border box-border overflow-auto  bg-green-300"
           >
             {/* {renderVideo && userType.current && ( */}
             {/*   <WebRTCWrapper userType={userType.current} /> */}

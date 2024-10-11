@@ -186,7 +186,7 @@ function Room() {
           }
           className="border box-border overflow-auto  h-full "
         >
-          <Editor />
+          {roomId && <Editor roomId={roomId} />}
         </ResizableBox>
         <div className="flex flex-col flex-1">
           <ResizableBox

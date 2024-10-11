@@ -14,7 +14,11 @@ import { yCollab } from "y-codemirror.next";
 import { WebrtcProvider } from "y-webrtc";
 import { useStore } from "../contexts/zustandStore";
 
-const Editor: React.FC = () => {
+type EditorProps = {
+  roomId: string;
+};
+
+const Editor: React.FC<EditorProps> = ({ roomId }) => {
   const editor = useRef<null | HTMLDivElement>(null);
   const socket = useContext(socketContext);
   const viewRef = useRef<EditorView | null>(null);
@@ -31,7 +35,7 @@ const Editor: React.FC = () => {
     if (!editor.current) return;
 
     const ydoc = new Y.Doc();
-    const provider = new WebrtcProvider("atharv", ydoc, {
+    const provider = new WebrtcProvider(roomId, ydoc, {
       signaling: ["ws://localhost:4444"],
     });
     const ytext = ydoc.getText("codemirror");

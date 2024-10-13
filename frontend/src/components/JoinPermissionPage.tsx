@@ -3,17 +3,21 @@ import { ToastContainer } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
 import { NavigateNext } from "@mui/icons-material";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
 import Room from "./Room";
 import { trpc } from "../client";
+import { socketContext } from "../socket";
 
 function JoinPermissionPage() {
   const { roomId } = useParams();
   const [renderJoinRoom, setRenderJoinRoom] = useState(true);
   const [isRenderResolved, setIsRenderResolved] = useState(false);
+  const [isRoomLive, setIsRoomLive] = useState(true);
+  const [isRoomLiveResolved, setIsRoomLiveResolved] = useState(false);
   const localVideoStream = useRef<MediaStream | null>(null);
   const localVideo = useRef<HTMLVideoElement | null>(null);
+  const socket = useContext(socketContext);
   const joinRoomMutation = trpc.joinRoom.useMutation({
     onSuccess: () => {
       console.log("Joined room");
@@ -21,7 +25,7 @@ function JoinPermissionPage() {
     },
   });
 
-  const res = trpc.verifyHost.useQuery(
+  const verificationRes = trpc.verifyHost.useQuery(
     { roomId: roomId! },
     {
       refetchOnWindowFocus: false,
@@ -30,17 +34,31 @@ function JoinPermissionPage() {
     },
   );
 
+  const roomLiveRes = trpc.checkRoomLive.useQuery({ roomId: roomId! });
+
   useEffect(() => {
-    if (!res.isLoading) {
-      if (res.isError) {
-        console.error(": ", res.error);
+    if (!verificationRes.isLoading) {
+      if (verificationRes.isError) {
+        console.error(": ", verificationRes.error);
       } else {
-        console.log(res.data);
-        setRenderJoinRoom(res.data?.renderJoinPage);
+        console.log(verificationRes.data);
+        setRenderJoinRoom(verificationRes.data?.renderJoinPage);
         setIsRenderResolved(true);
       }
     }
-  }, [res.isLoading]);
+  }, [verificationRes.isLoading]);
+
+  useEffect(() => {
+    if (!roomLiveRes.isLoading) {
+      if (roomLiveRes.isError) {
+        console.error(": ", roomLiveRes.error);
+      } else {
+        console.log(roomLiveRes.data);
+        setIsRoomLive(roomLiveRes.data?.isLive);
+        setIsRoomLiveResolved(true);
+      }
+    }
+  }, [roomLiveRes.isLoading]);
 
   useEffect(() => {
     (async () => {
@@ -87,13 +105,17 @@ function JoinPermissionPage() {
 
   return (
     <SignedIn>
-      {isRenderResolved ? (
-        renderJoinRoom ? (
-          <JoinPageComponent />
+      {isRenderResolved && isRoomLiveResolved ? (
+        isRoomLive ? (
+          renderJoinRoom ? (
+            <JoinPageComponent />
+          ) : (
+            <div>
+              <Room setIsRoomLive={setIsRoomLive} />
+            </div>
+          )
         ) : (
-          <div>
-            <Room />
-          </div>
+          <div>Room does not exist</div>
         )
       ) : (
         <div>Loading...</div>

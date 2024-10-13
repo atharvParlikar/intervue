@@ -51,7 +51,7 @@ export const getRoomId = async (email: string): Promise<string | null> => {
 export const getRoom = async (roomId: string): Promise<Room | null> => {
   const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
 
-  if (!roomImpure) {
+  if (!roomImpure.host) {
     console.error(`[connectionReady] No room found for roomId: ${roomId}`);
     return null;
   }
@@ -206,6 +206,34 @@ export const socketEvents = (io: Server, socket: Socket) => {
     } else {
       console.error("[editor-val] Other peer not found in room");
     }
+  });
+
+  socket.on("kill", async (token: string) => {
+    console.log(`[kill] Received kill request from ${socket.id}`);
+    const jwt = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+    });
+    const email = jwt.email as string;
+    console.log(`[kill] Email: ${email}`);
+    const roomId = await getRoomId(email);
+    const room = await getRoom(roomId!);
+    if (!room) {
+      console.error("[kill] Room not found");
+      return;
+    }
+    const hostId = room.host.socketId!;
+    const participantId = room.participant?.socketId!;
+
+    console.log(`[kill] Emitting kill to ${hostId} and ${participantId}`);
+
+    io.to(hostId).emit("kill");
+    io.to(participantId).emit("kill");
+
+    redisClient.hDel(`roomInverse`, room.host.email);
+    if (room.participant) {
+      redisClient.hDel(`roomInverse`, room.participant.email);
+    }
+    redisClient.DEL(`room:${roomId}`);
   });
 
   // socket.on("run-code", (codeObject: string) => {

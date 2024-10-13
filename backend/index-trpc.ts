@@ -314,6 +314,21 @@ const appRouter = router({
         };
       }
     }),
+  checkRoomLive: publicProcedure
+    .input(z.object({ roomId: z.string() }))
+    .query(async ({ input }) => {
+      const { roomId } = input;
+      console.log("roomId: ", roomId);
+
+      const room = await getRoom(roomId);
+      console.log("room: ", room);
+
+      if (!room) {
+        return { isLive: false };
+      }
+
+      return { isLive: true };
+    }),
   runCode: privateProcedure
     .input(
       z.object({

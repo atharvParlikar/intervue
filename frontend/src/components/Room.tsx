@@ -2,9 +2,6 @@ import "../App.css";
 import WebRTCWrapper from "./WebRTCWrapper";
 import Output from "./Output";
 
-import { ResizableBox } from "react-resizable";
-import "react-resizable/css/styles.css";
-
 import { useParams } from "react-router-dom";
 import { SignedIn } from "@clerk/clerk-react";
 import { ToastContainer, toast } from "react-toastify";
@@ -16,12 +13,15 @@ import { trpc } from "../client";
 import Editor from "./Editor";
 import { useStore } from "../contexts/zustandStore";
 
-interface Sizes {
-  width: number;
-  height: number;
-}
+// Import resizable panel components
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import Topbar from "./Topbar";
 
-function Room() {
+type RoomProps = {
+  setIsRoomLive: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+function Room({ setIsRoomLive }: RoomProps) {
   const { roomId } = useParams();
   const socket = useContext(socketContext);
   const [renderVideo, setRenderVideo] = useState(false);
@@ -65,6 +65,10 @@ function Room() {
       });
     });
 
+    socket.on("kill", () => {
+      setIsRoomLive(false);
+    });
+
     return () => {
       socket.off("connect");
       socket.off("notify");
@@ -92,137 +96,36 @@ function Room() {
       </div>,
     );
 
-  const [sizes, setSizes] = useState<{
-    editor: Sizes;
-    output: Sizes;
-    video: Sizes;
-  }>({
-    editor: { width: 0, height: 0 },
-    output: { width: 0, height: 0 },
-    video: { width: 0, height: 0 },
-  });
-
-  useEffect(() => {
-    const totalWidth = window.innerWidth;
-    const totalHeight = window.innerHeight;
-
-    setSizes({
-      editor: { width: totalWidth * 0.5, height: totalHeight },
-      output: { width: totalWidth * 0.5, height: totalHeight * 0.5 },
-      video: { width: totalWidth * 0.5, height: totalHeight * 0.5 },
-    });
-
-    const handleResize = () => {
-      const newTotalWidth = window.innerWidth;
-      const newTotalHeight = window.innerHeight;
-
-      setSizes(() => ({
-        editor: { width: newTotalWidth * 0.5, height: newTotalHeight },
-        output: { width: newTotalWidth * 0.5, height: newTotalHeight * 0.5 },
-        video: { width: newTotalWidth * 0.5, height: newTotalHeight * 0.5 },
-      }));
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const handleResize = (
-    key: "editor" | "output" | "video",
-    newWidth: number,
-    newHeight: number,
-  ) => {
-    const totalWidth = window.innerWidth;
-    const totalHeight = window.innerHeight;
-
-    if (key === "editor") {
-      const remainingWidth = totalWidth - newWidth;
-
-      setSizes({
-        editor: { width: newWidth, height: totalHeight },
-        output: { width: remainingWidth, height: totalHeight * 0.5 },
-        video: { width: remainingWidth, height: totalHeight * 0.5 },
-      });
-    } else {
-      const otherHeight = totalHeight - newHeight;
-
-      setSizes((prevSizes) => ({
-        ...prevSizes,
-        [key]: { ...prevSizes[key], height: newHeight },
-        output:
-          key === "output"
-            ? { ...prevSizes.output, height: newHeight }
-            : { ...prevSizes.output, height: otherHeight },
-        video:
-          key === "video"
-            ? { ...prevSizes.video, height: newHeight }
-            : { ...prevSizes.video, height: otherHeight },
-      }));
-    }
+  const endMeeting = (token: string) => {
+    socket.emit("kill", token);
   };
 
   return (
     <SignedIn>
-      <Button
-        onClick={() =>
-          runCodeMutation.mutate({
-            code,
-          })
-        }
-      >
-        Run code
-      </Button>
+      <Topbar
+        runCode={(code: string) => runCodeMutation.mutate({ code })}
+        endMeeting={endMeeting}
+      />
       <div className="flex h-screen w-screen">
-        <ResizableBox
-          width={sizes.editor.width}
-          height={sizes.editor.height}
-          minConstraints={[100, 100]}
-          maxConstraints={[
-            sizes.editor.width + sizes.output.width,
-            sizes.editor.height,
-          ]}
-          onResizeStop={(_, { size }) =>
-            handleResize("editor", size.width, size.height)
-          }
-          className="border box-border overflow-auto  h-full "
-        >
-          {roomId && <Editor roomId={roomId} />}
-        </ResizableBox>
-        <div className="flex flex-col flex-1">
-          <ResizableBox
-            width={sizes.output.width}
-            height={sizes.output.height}
-            minConstraints={[100, 100]}
-            maxConstraints={[
-              sizes.output.width,
-              sizes.output.height + sizes.video.height,
-            ]}
-            onResizeStop={(_, { size }) =>
-              handleResize("output", size.width, size.height)
-            }
-            className="border box-border overflow-auto  bg-blue-300"
-          >
-            <Output />
-          </ResizableBox>
-          <ResizableBox
-            width={sizes.video.width}
-            height={sizes.video.height}
-            minConstraints={[100, 100]}
-            maxConstraints={[
-              sizes.video.width,
-              sizes.output.height + sizes.video.height,
-            ]}
-            onResizeStop={(_, { size }) =>
-              handleResize("video", size.width, size.height)
-            }
-            className="border box-border overflow-auto  bg-green-300"
-          >
-            {/* {renderVideo && userType.current && ( */}
-            {/*   <WebRTCWrapper userType={userType.current} /> */}
-            {/* )} */}
-            <div></div>
-          </ResizableBox>
-        </div>
+        <PanelGroup direction="horizontal">
+          <Panel defaultSize={50} minSize={25}>
+            {roomId && <Editor roomId={roomId} />}
+          </Panel>
+          <PanelResizeHandle />
+          <Panel>
+            <PanelGroup direction="vertical">
+              <Panel defaultSize={50} minSize={25} className="bg-blue-300">
+                <Output />
+              </Panel>
+              <PanelResizeHandle />
+              <Panel defaultSize={50} minSize={25} className="bg-green-300">
+                {/* {renderVideo && userType.current && ( */}
+                {/*   <WebRTCWrapper userType={userType.current} /> */}
+                {/* )} */}
+              </Panel>
+            </PanelGroup>
+          </Panel>
+        </PanelGroup>
       </div>
 
       <ToastContainer />

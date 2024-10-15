@@ -90,7 +90,7 @@ const TestingPage = () => {
       <div className="h-screen w-screen flex flex-col items-center justify-center gap-4">
         <Button onClick={handleRun}>Run</Button>
         <div className="h-1/3 w-1/3 ">
-          <Editor defaultValue={pythonTemplate} roomId="1234" />
+          <Editor initialDocValue={pythonTemplate} roomId={roomId!} />
         </div>
         <div className="h-1/3 w-1/3">
           <Testcases />

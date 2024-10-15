@@ -329,7 +329,11 @@ const appRouter = router({
       const { roomId } = input;
       const { email } = ctx;
 
+      console.log(roomId);
+      console.log(email);
+
       const room = await getRoom(roomId);
+      console.log("[GET /verifyHost] room: ", room);
       if (!room) return { isHost: false };
 
       const host = room.host;

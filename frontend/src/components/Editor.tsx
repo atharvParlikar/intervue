@@ -17,10 +17,10 @@ import { trpc } from "../client";
 
 type EditorProps = {
   roomId: string;
-  defaultValue?: string;
+  initialDocValue?: string;
 };
 
-const Editor: React.FC<EditorProps> = ({ roomId, defaultValue }) => {
+const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
   const editor = useRef<null | HTMLDivElement>(null);
   const socket = useContext(socketContext);
   const viewRef = useRef<EditorView | null>(null);
@@ -57,7 +57,7 @@ const Editor: React.FC<EditorProps> = ({ roomId, defaultValue }) => {
     });
 
     const startState = EditorState.create({
-      doc: defaultValue,
+      doc: "",
       extensions: [
         basicSetup,
         keymap.of([defaultKeymap, indentWithTab]),
@@ -89,12 +89,14 @@ const Editor: React.FC<EditorProps> = ({ roomId, defaultValue }) => {
       if (!providerRef.current || !yTextRef.current) return;
       if (
         providerRef.current.connected &&
-        defaultValue &&
+        initialDocValue &&
         !hostQuery.isLoading &&
         hostQuery.data
       ) {
+        console.log(hostQuery.data.isHost);
         if (hostQuery.data.isHost) {
-          yTextRef.current.insert(0, defaultValue);
+          console.log("the user shall populate");
+          yTextRef.current?.insert(0, initialDocValue);
         }
       }
     };

@@ -15,6 +15,7 @@ import { createContext } from "./context";
 import redisClient from "./redis";
 import { getRoom, getRoomId, socketEvents } from "./socketEvents";
 import { spawn } from "child_process";
+import { judge } from "./judge";
 
 configDotenv();
 
@@ -200,6 +201,12 @@ const appRouter = router({
         roomId_: z.string(),
       }),
     )
+    .output(
+      z.object({
+        message: z.string(),
+        userType: z.string(),
+      }),
+    )
     .mutation(async ({ input, ctx }) => {
       const { socketId, roomId_ } = input;
       const { email } = ctx;
@@ -266,7 +273,7 @@ const appRouter = router({
       }
     }),
 
-  verifyHost: privateProcedure
+  renderJoinpage: privateProcedure
     .input(z.object({ roomId: z.string() }))
     .query(async ({ input, ctx }) => {
       const { roomId } = input;
@@ -314,8 +321,27 @@ const appRouter = router({
         };
       }
     }),
+
+  verifyHost: privateProcedure
+    .input(z.object({ roomId: z.string() }))
+    .output(z.object({ isHost: z.boolean() }))
+    .query(async ({ input, ctx }) => {
+      const { roomId } = input;
+      const { email } = ctx;
+
+      const room = await getRoom(roomId);
+      if (!room) return { isHost: false };
+
+      const host = room.host;
+
+      if (host.email === email) return { isHost: true };
+
+      return { isHost: false };
+    }),
+
   checkRoomLive: publicProcedure
     .input(z.object({ roomId: z.string() }))
+    .output(z.object({ isLive: z.boolean() }))
     .query(async ({ input }) => {
       const { roomId } = input;
       console.log("roomId: ", roomId);
@@ -337,7 +363,6 @@ const appRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       const { code } = input;
-
       const { email } = ctx;
 
       const roomId = await getRoomId(email);
@@ -362,7 +387,7 @@ const appRouter = router({
         console.log("[run-code] Output:", output);
 
         const roomId = await getRoomId(email);
-        if (!roomId) return;
+        if (!roomId) throw new TRPCError({ code: "NOT_FOUND" });
 
         const room = await getRoom(roomId);
 
@@ -399,6 +424,39 @@ const appRouter = router({
           result: "yo done",
         };
       });
+    }),
+  judge: privateProcedure
+    .input(
+      z.object({
+        code: z.string(),
+        language: z.enum(["python", "javascript"]),
+        problemFunction: z.string(),
+      }),
+    )
+    .output(z.object({ success: z.boolean() }))
+    .query(async ({ ctx, input }) => {
+      const { code, language, problemFunction } = input;
+      const { email } = ctx;
+
+      const roomId = await getRoomId(email);
+      if (!roomId) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const room = await getRoom(roomId);
+      if (!room) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const result = await judge({ code, language, problemFunction });
+
+      const host = room.host.socketId;
+      const participant = room.participant?.socketId;
+
+      if (host) {
+        io.to(host).emit("judge", result);
+      }
+      if (participant) {
+        io.to(participant).emit("judge", result);
+      }
+
+      return { success: true };
     }),
 });
 

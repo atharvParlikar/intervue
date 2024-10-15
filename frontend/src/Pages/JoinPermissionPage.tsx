@@ -1,12 +1,13 @@
-import { Button } from "./ui/button";
+import { Button } from "../components/ui/button";
 import { ToastContainer } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
 import { NavigateNext } from "@mui/icons-material";
 import { useEffect, useState, useRef, useContext } from "react";
 import { useParams } from "react-router-dom";
-import Room from "./Room";
 import { trpc } from "../client";
+// import Room from "./Room";
+import TestingPage from "./TestingPage";
 import { socketContext } from "../socket";
 
 function JoinPermissionPage() {
@@ -17,15 +18,15 @@ function JoinPermissionPage() {
   const [isRoomLiveResolved, setIsRoomLiveResolved] = useState(false);
   const localVideoStream = useRef<MediaStream | null>(null);
   const localVideo = useRef<HTMLVideoElement | null>(null);
-  const socket = useContext(socketContext);
   const joinRoomMutation = trpc.joinRoom.useMutation({
     onSuccess: () => {
       console.log("Joined room");
       setRenderJoinRoom(false);
     },
   });
+  const socket = useContext(socketContext);
 
-  const verificationRes = trpc.verifyHost.useQuery(
+  const verificationRes = trpc.renderJoinpage.useQuery(
     { roomId: roomId! },
     {
       refetchOnWindowFocus: false,
@@ -35,6 +36,12 @@ function JoinPermissionPage() {
   );
 
   const roomLiveRes = trpc.checkRoomLive.useQuery({ roomId: roomId! });
+
+  useEffect(() => {
+    if (!socket.connected) {
+      socket.connect();
+    }
+  }, [socket]);
 
   useEffect(() => {
     if (!verificationRes.isLoading) {
@@ -111,7 +118,8 @@ function JoinPermissionPage() {
             <JoinPageComponent />
           ) : (
             <div>
-              <Room setIsRoomLive={setIsRoomLive} />
+              {/* <Room setIsRoomLive={setIsRoomLive} /> */}
+              <TestingPage />
             </div>
           )
         ) : (

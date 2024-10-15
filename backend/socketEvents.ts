@@ -65,7 +65,6 @@ export const getRoom = async (roomId: string): Promise<Room | null> => {
 
   try {
     participant = JSON.parse(roomImpure.participant);
-    console.log("Participant: ", participant);
     return { ...room, participant };
   } catch (_) {}
 
@@ -235,38 +234,6 @@ export const socketEvents = (io: Server, socket: Socket) => {
     }
     redisClient.DEL(`room:${roomId}`);
   });
-
-  // socket.on("run-code", (codeObject: string) => {
-  //   console.log(`[run-code] Received run code request from ${socket.id}`);
-  //   const { code, email } = JSON.parse(codeObject);
-  //   let output = "";
-
-  //   const pythonProcess = spawn("docker", [
-  //     "run",
-  //     "python",
-  //     "python",
-  //     "-c",
-  //     code,
-  //   ]);
-
-  //   pythonProcess.stdout.on("data", (data) => {
-  //     output += data.toString();
-  //   });
-  //   pythonProcess.on("close", (code) => {
-  //     console.log(`[run-code] Python process exited with code ${code}`);
-  //     console.log("[run-code] Output:", output);
-
-  //     const room = rooms[roomsInverse[email]];
-
-  //     const host = room.host.socketId;
-  //     const participant = room.participant?.socketId;
-  //     console.log(
-  //       `[run-code] Emitting output to host ${host} and participant ${participant}`
-  //     );
-  //     io.to(host).emit("output", JSON.stringify({ code, output }));
-  //     io.to(participant!).emit("output", JSON.stringify({ code, output }));
-  //   });
-  // });
 
   socket.on("disconnect", async () => {
     try {

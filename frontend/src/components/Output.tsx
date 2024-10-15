@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useEffect } from "react";
 import { socketContext } from "../socket";
 
 interface Output {
@@ -9,9 +9,11 @@ export default function Output() {
   const socket = useContext(socketContext);
   const [output, setOutput] = useState<Output>({ output: "" });
 
-  socket.on("output", (output: string) => {
-    const output_ = JSON.parse(output);
-    setOutput(output_);
+  useEffect(() => {
+    socket.on("output", (output: string) => {
+      const output_ = JSON.parse(output);
+      setOutput(output_);
+    });
   });
 
   const lines = output.output.split("\n");

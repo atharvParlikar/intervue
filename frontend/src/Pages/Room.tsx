@@ -1,21 +1,20 @@
 import "../App.css";
-import WebRTCWrapper from "./WebRTCWrapper";
-import Output from "./Output";
+// import WebRTCWrapper from "./WebRTCWrapper";
+import Output from "../components/Output";
 
 import { useParams } from "react-router-dom";
 import { SignedIn } from "@clerk/clerk-react";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { Button } from "./ui/button";
+import { Button } from "../components/ui/button";
 import { useContext, useEffect, useState, useRef } from "react";
 import { socketContext } from "../socket";
 import { trpc } from "../client";
-import Editor from "./Editor";
-import { useStore } from "../contexts/zustandStore";
+import Editor from "../components/Editor";
 
 // Import resizable panel components
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import Topbar from "./Topbar";
+import Topbar from "../components/Topbar";
 
 type RoomProps = {
   setIsRoomLive: React.Dispatch<React.SetStateAction<boolean>>;
@@ -26,7 +25,6 @@ function Room({ setIsRoomLive }: RoomProps) {
   const socket = useContext(socketContext);
   const [renderVideo, setRenderVideo] = useState(false);
   const userType = useRef<string | null>(null);
-  const { code } = useStore();
   const setSocketMutation = trpc.setSocket.useMutation({
     onSuccess: (data) => {
       userType.current = data.userType;
@@ -63,15 +61,16 @@ function Room({ setIsRoomLive }: RoomProps) {
         const user = JSON.parse(userObject);
         notify(user, callback);
       });
-    });
 
-    socket.on("kill", () => {
-      setIsRoomLive(false);
+      socket.on("kill", () => {
+        setIsRoomLive(false);
+      });
     });
 
     return () => {
       socket.off("connect");
       socket.off("notify");
+      socket.off("kill");
     };
   }, []);
 

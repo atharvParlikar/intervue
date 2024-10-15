@@ -1,11 +1,11 @@
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { ToastContainer, toast } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
 import { useUser } from "@clerk/clerk-react";
 import { useContext, useEffect, useRef, useState } from "react";
-import IconButton from "./ui/IconButton";
+import IconButton from "../components/ui/IconButton";
 import {
   Mic,
   MicOff,

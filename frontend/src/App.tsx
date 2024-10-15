@@ -2,13 +2,14 @@ import "./App.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Home_ from "./components/Home_";
-import JoinPermissionPage from "./components/JoinPermissionPage";
-import SignInPage from "./components/SignInPage";
-import SignUpPage from "./components/SignUpPage";
+import JoinPermissionPage from "./Pages/JoinPermissionPage";
+import SignInPage from "./Pages/SignInPage";
+import SignUpPage from "./Pages/SignUpPage";
 import VideoSettingsContextProvider from "./contexts/video-settings";
 import { trpc, trpcClient } from "./client";
 import { useAuth } from "@clerk/clerk-react";
 import { useMemo } from "react";
+import TestingPage from "./Pages/TestingPage";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ function App() {
                 </VideoSettingsContextProvider>
               }
             />
+            <Route path="/testing" element={<TestingPage />} />
             <Route path="/sign-in" element={<SignInPage />} />
             <Route path="/sign-up" element={<SignUpPage />} />
           </Routes>

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useContext, useState } from "react";
+import React, { useRef, useEffect, useContext } from "react";
 
 import { EditorState } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
@@ -13,16 +13,21 @@ import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
 import { WebrtcProvider } from "y-webrtc";
 import { useStore } from "../contexts/zustandStore";
+import { trpc } from "../client";
 
 type EditorProps = {
   roomId: string;
+  defaultValue?: string;
 };
 
-const Editor: React.FC<EditorProps> = ({ roomId }) => {
+const Editor: React.FC<EditorProps> = ({ roomId, defaultValue }) => {
   const editor = useRef<null | HTMLDivElement>(null);
   const socket = useContext(socketContext);
   const viewRef = useRef<EditorView | null>(null);
   const shouldEmit = useRef(true);
+  const providerRef = useRef<WebrtcProvider | null>(null);
+  const yTextRef = useRef<Y.Text | null>(null);
+  const hostQuery = trpc.verifyHost.useQuery({ roomId });
   const { code, updateCode } = useStore();
 
   const onUpdate = EditorView.updateListener.of((v) => {
@@ -38,8 +43,10 @@ const Editor: React.FC<EditorProps> = ({ roomId }) => {
     const provider = new WebrtcProvider(roomId, ydoc, {
       signaling: ["ws://localhost:4444"],
     });
-    const ytext = ydoc.getText("codemirror");
-    const undoManager = new Y.UndoManager(ytext);
+    providerRef.current = provider;
+    const yText = ydoc.getText("codemirror");
+    yTextRef.current = yText;
+    const undoManager = new Y.UndoManager(yText);
 
     const color = "#ff0000";
 
@@ -50,14 +57,14 @@ const Editor: React.FC<EditorProps> = ({ roomId }) => {
     });
 
     const startState = EditorState.create({
-      doc: "",
+      doc: defaultValue,
       extensions: [
         basicSetup,
         keymap.of([defaultKeymap, indentWithTab]),
         python(),
         onUpdate,
         tokyoNight,
-        yCollab(ytext, provider.awareness, { undoManager }),
+        yCollab(yText, provider.awareness, { undoManager }),
       ],
     });
 
@@ -76,6 +83,24 @@ const Editor: React.FC<EditorProps> = ({ roomId }) => {
       ydoc.destroy();
     };
   }, []);
+
+  useEffect(() => {
+    const populateDocument = async () => {
+      if (!providerRef.current || !yTextRef.current) return;
+      if (
+        providerRef.current.connected &&
+        defaultValue &&
+        !hostQuery.isLoading &&
+        hostQuery.data
+      ) {
+        if (hostQuery.data.isHost) {
+          yTextRef.current.insert(0, defaultValue);
+        }
+      }
+    };
+
+    populateDocument();
+  }, [providerRef.current, hostQuery.isLoading, hostQuery.data]);
 
   useEffect(() => {
     if (socket) {

@@ -10,7 +10,15 @@ type TcodeObject = {
   problemFunction: string;
 };
 
-const testCase1Arguments = [2, 2];
+const testcases = [
+  { input: [2, 2], output: 4 },
+  { input: [-1, 1], output: 0 },
+  { input: [0, 0], output: 0 },
+  { input: [100, 200], output: 300 },
+  { input: [-5, -3], output: -8 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [9999999, 1], output: 10000000 },
+];
 
 const writeFileAsync = promisify(fs.writeFile);
 const execAsync = promisify(exec);
@@ -40,14 +48,35 @@ export function judge(codeObject: TcodeObject) {
   const { language, code, problemFunction } = codeObject;
 
   const runFunction =
-    problemFunction.split("(")[0] + "(" + testCase1Arguments.join(",") + ")";
+    problemFunction.split("(")[0] + "(" + testcases[0].input.join(",") + ")";
 
   console.log("[judge function] runFunction: ", runFunction);
 
-  const pythonTest = `\ns = Solution()\nprint(s.${runFunction})`;
+  const testcasesinjetion = `testcases = ${testcases.map((x) => JSON.stringify(x))}\n`;
+
+  const pythonTest =
+    testcasesinjetion +
+    `
+s = Solution()
+results = {"passed": [], "failed": []}
+for i, testcase in enumerate(testcases):
+    x, y = testcase["input"]
+    expected_output = testcase["output"]
+    actual_output = s.sum(x, y)
+
+    if actual_output == expected_output:
+        results["passed"].append(i+1)
+    else:
+        results["failed"].append({
+            "test_case": i+1,
+            "expected": expected_output,
+            "actual": actual_output
+        })
+print(json.dumps(results, indent=4))
+`;
 
   switch (language) {
     case "python":
-      return runPythonInDocker(code + pythonTest);
+      return runPythonInDocker("import json\n" + code + pythonTest);
   }
 }

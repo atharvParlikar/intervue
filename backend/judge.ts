@@ -1,4 +1,4 @@
-import { exec, spawn } from "child_process";
+import { exec } from "child_process";
 import os from "os";
 import path from "path";
 import { promisify } from "util";
@@ -20,15 +20,56 @@ const testcases = [
   { input: [9999999, 1], output: 10000000 },
 ];
 
+const testcases2 = [{ input: [[1, 2, 3, 4, 5]], output: 15 }];
+
 const writeFileAsync = promisify(fs.writeFile);
 const execAsync = promisify(exec);
 
-async function runPythonInDocker(pythonScript: string) {
+type Testcase = {
+  input: any[];
+  output: any;
+};
+
+async function runPythonInDocker(
+  pythonScript: string,
+  problemFunction: string,
+  testcases: Testcase[],
+) {
   const tempDir = os.tmpdir();
   const scriptPath = path.join(tempDir, "script.py");
 
+  const runFunction =
+    problemFunction.split("(")[0] + "(" + testcases[0].input.join(",") + ")";
+
+  console.log("[judge function] runFunction: ", runFunction);
+
+  const testcasesinjetion = `\ntestcases = [${testcases2.map((x) => JSON.stringify(x))}]\n`;
+
+  const pythonTest =
+    testcasesinjetion +
+    `
+s = Solution()
+results = {"passed": [], "failed": []}
+for i, testcase in enumerate(testcases):
+    print(testcase)
+    expected_output = testcase["output"]
+    actual_output = s.${problemFunction.split("(")[0]}(*testcases[i]["input"])
+
+    if actual_output == expected_output:
+        results["passed"].append(i+1)
+    else:
+        results["failed"].append({
+            "test_case": i+1,
+            "expected": expected_output,
+            "actual": actual_output
+        })
+print(json.dumps(results, indent=4))
+`;
+
+  const pythonScriptWithTest = "import json\n" + pythonScript + pythonTest;
+
   try {
-    await writeFileAsync(scriptPath, pythonScript);
+    await writeFileAsync(scriptPath, pythonScriptWithTest);
 
     const { stdout, stderr } = await execAsync(
       `docker run --rm -v ${scriptPath}:/script.py python:3.9-slim python /script.py`,
@@ -47,36 +88,8 @@ async function runPythonInDocker(pythonScript: string) {
 export function judge(codeObject: TcodeObject) {
   const { language, code, problemFunction } = codeObject;
 
-  const runFunction =
-    problemFunction.split("(")[0] + "(" + testcases[0].input.join(",") + ")";
-
-  console.log("[judge function] runFunction: ", runFunction);
-
-  const testcasesinjetion = `testcases = ${testcases.map((x) => JSON.stringify(x))}\n`;
-
-  const pythonTest =
-    testcasesinjetion +
-    `
-s = Solution()
-results = {"passed": [], "failed": []}
-for i, testcase in enumerate(testcases):
-    x, y = testcase["input"]
-    expected_output = testcase["output"]
-    actual_output = s.sum(x, y)
-
-    if actual_output == expected_output:
-        results["passed"].append(i+1)
-    else:
-        results["failed"].append({
-            "test_case": i+1,
-            "expected": expected_output,
-            "actual": actual_output
-        })
-print(json.dumps(results, indent=4))
-`;
-
   switch (language) {
     case "python":
-      return runPythonInDocker("import json\n" + code + pythonTest);
+      return runPythonInDocker(code, problemFunction, testcases2);
   }
 }

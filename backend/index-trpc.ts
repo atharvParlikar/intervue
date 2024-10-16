@@ -449,6 +449,7 @@ const appRouter = router({
       if (!room) throw new TRPCError({ code: "NOT_FOUND" });
 
       const result = await judge({ code, language, problemFunction });
+      console.log(`[judge] result: `, result);
 
       const host = room.host.socketId;
       const participant = room.participant?.socketId;

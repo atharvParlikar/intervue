@@ -12,8 +12,7 @@ import "react-toastify/dist/ReactToastify.css";
 
 const TestingPage = () => {
   const { code } = useStore();
-
-  const problemFunction = "sum(num1, num2)";
+  const problemFunction = "sum(self, num1, num2)";
   const [resultState, setResultState] = useState<string>("");
   const setSocketMutation = trpc.setSocket.useMutation();
   const socket = useContext(socketContext);
@@ -82,8 +81,8 @@ const TestingPage = () => {
   }, [socket]);
 
   const pythonTemplate = `class Solution:
-  def ${problemFunction}
-    pass`;
+  def ${problemFunction}:
+    pass\n\n`;
 
   return (
     <SignedIn>

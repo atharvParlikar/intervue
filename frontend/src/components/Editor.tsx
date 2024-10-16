@@ -27,6 +27,7 @@ const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
   const shouldEmit = useRef(true);
   const providerRef = useRef<WebrtcProvider | null>(null);
   const yTextRef = useRef<Y.Text | null>(null);
+  const syncedRef = useRef<boolean>(false);
   const hostQuery = trpc.verifyHost.useQuery({ roomId });
   const { code, updateCode } = useStore();
 
@@ -47,6 +48,11 @@ const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
     const yText = ydoc.getText("codemirror");
     yTextRef.current = yText;
     const undoManager = new Y.UndoManager(yText);
+
+    provider.on("synced", (synced) => {
+      console.log("synced: ", synced);
+      syncedRef.current = synced.synced;
+    });
 
     const color = "#ff0000";
 
@@ -94,15 +100,22 @@ const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
         hostQuery.data
       ) {
         console.log(hostQuery.data.isHost);
-        if (hostQuery.data.isHost) {
-          console.log("the user shall populate");
-          yTextRef.current?.insert(0, initialDocValue);
+        if (hostQuery.data.isHost && !syncedRef.current) {
+          yTextRef.current.insert(0, initialDocValue);
+        }
+        if (hostQuery.data.isHost && syncedRef.current) {
+          yTextRef.current.delete(0, yTextRef.current.length);
+          yTextRef.current.insert(0, initialDocValue);
         }
       }
     };
-
     populateDocument();
-  }, [providerRef.current, hostQuery.isLoading, hostQuery.data]);
+  }, [
+    providerRef.current,
+    hostQuery.isLoading,
+    hostQuery.data,
+    syncedRef.current,
+  ]);
 
   useEffect(() => {
     if (socket) {

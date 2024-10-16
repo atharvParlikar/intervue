@@ -1,4 +1,8 @@
-import { spawn } from "child_process";
+import { exec, spawn } from "child_process";
+import os from "os";
+import path from "path";
+import { promisify } from "util";
+import fs from "fs";
 
 type TcodeObject = {
   language: "python" | "javascript";
@@ -6,35 +10,73 @@ type TcodeObject = {
   problemFunction: string;
 };
 
-const testCase1Arguments = [2, 2];
+const testcases = [
+  { input: [2, 2], output: 4 },
+  { input: [-1, 1], output: 0 },
+  { input: [0, 0], output: 0 },
+  { input: [100, 200], output: 300 },
+  { input: [-5, -3], output: -8 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [9999999, 1], output: 10000000 },
+];
+
+const writeFileAsync = promisify(fs.writeFile);
+const execAsync = promisify(exec);
+
+async function runPythonInDocker(pythonScript: string) {
+  const tempDir = os.tmpdir();
+  const scriptPath = path.join(tempDir, "script.py");
+
+  try {
+    await writeFileAsync(scriptPath, pythonScript);
+
+    const { stdout, stderr } = await execAsync(
+      `docker run --rm -v ${scriptPath}:/script.py python:3.9-slim python /script.py`,
+    );
+
+    return stdout || stderr;
+  } catch (error: any) {
+    return `Error: ${error.message}`;
+  } finally {
+    fs.unlink(scriptPath, (err) => {
+      if (err) console.error(`Failed to delete temporary file: ${err}`);
+    });
+  }
+}
 
 export function judge(codeObject: TcodeObject) {
   const { language, code, problemFunction } = codeObject;
 
   const runFunction =
-    problemFunction.split("(")[0] + "(" + testCase1Arguments.join(",") + ")";
+    problemFunction.split("(")[0] + "(" + testcases[0].input.join(",") + ")";
 
-  const pythonTest = `\ns = Solution()\nprint(s.${runFunction})`;
+  console.log("[judge function] runFunction: ", runFunction);
 
-  return new Promise((resolve, reject) => {
-    switch (language) {
-      case "python":
-        let output = "";
-        const pythonProcess = spawn("docker", [
-          "run",
-          "python",
-          "python",
-          "-c",
-          code + pythonTest,
-        ]);
+  const testcasesinjetion = `testcases = ${testcases.map((x) => JSON.stringify(x))}\n`;
 
-        pythonProcess.stdout.on("data", (data) => {
-          output += data.toString();
-        });
+  const pythonTest =
+    testcasesinjetion +
+    `
+s = Solution()
+results = {"passed": [], "failed": []}
+for i, testcase in enumerate(testcases):
+    x, y = testcase["input"]
+    expected_output = testcase["output"]
+    actual_output = s.sum(x, y)
 
-        pythonProcess.on("close", () => {
-          resolve(output);
-        });
-    }
-  });
+    if actual_output == expected_output:
+        results["passed"].append(i+1)
+    else:
+        results["failed"].append({
+            "test_case": i+1,
+            "expected": expected_output,
+            "actual": actual_output
+        })
+print(json.dumps(results, indent=4))
+`;
+
+  switch (language) {
+    case "python":
+      return runPythonInDocker("import json\n" + code + pythonTest);
+  }
 }

@@ -13,7 +13,7 @@ const Topbar: React.FC<TopbarProps> = ({ runCode, endMeeting }) => {
   return (
     <div className="flex justify-center items-center w-full ">
       <Button className="mx-2 my-1" onClick={() => runCode(code)}>
-        Fuck Shit
+        Run Code
       </Button>
       <Button
         className="mx-2 my-1"

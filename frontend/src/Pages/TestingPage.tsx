@@ -1,5 +1,5 @@
 import Editor from "../components/Editor";
-import Testcases from "../components/Testcases";
+import Testcases, { TestResult } from "../components/TestResults";
 import { Button } from "../components/ui/button";
 import { trpc } from "../client";
 import { useStore } from "../contexts/zustandStore";
@@ -9,11 +9,12 @@ import { useParams } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { SignedIn } from "@clerk/clerk-react";
 import "react-toastify/dist/ReactToastify.css";
+import Topbar from "../components/Topbar";
 
 const TestingPage = () => {
   const { code } = useStore();
-  const problemFunction = "sum(self, arr)";
-  const [resultState, setResultState] = useState<string>("");
+  const problemFunction = "add(self, num1, num2)";
+  const [resultState, setResultState] = useState<TestResult | null>(null);
   const setSocketMutation = trpc.setSocket.useMutation();
   const socket = useContext(socketContext);
   const { roomId } = useParams();
@@ -65,7 +66,8 @@ const TestingPage = () => {
     if (socket.connected) {
       console.log("Connected to socket");
       socket.on("judge", (result: string) => {
-        console.log("judge: ", result);
+        console.log("result: ", result);
+        setResultState(JSON.parse(result));
       });
 
       socket.on("notify", (userObject: string, callback) => {
@@ -77,6 +79,7 @@ const TestingPage = () => {
     }
     return () => {
       socket.off("judge");
+      socket.off("notify");
     };
   }, [socket]);
 
@@ -84,15 +87,22 @@ const TestingPage = () => {
   def ${problemFunction}:
     pass\n`;
 
+  const endMeeting = (token: string) => {
+    socket.emit("kill", token);
+  };
+
   return (
     <SignedIn>
       <div className="h-screen w-screen flex flex-col items-center justify-center gap-4">
-        <Button onClick={handleRun}>Run</Button>
-        <div className="h-1/3 w-1/3 ">
+        <Topbar
+          runCode={handleRun}
+          endMeeting={() => endMeeting(localStorage.getItem("token")!)}
+        />
+        <div className="h-1/2 w-4/5 ">
           <Editor initialDocValue={pythonTemplate} roomId={roomId!} />
         </div>
-        <div className="h-1/3 w-1/3">
-          <Testcases />
+        <div className="h-1/2 w-4/5">
+          {resultState && <Testcases testResults={resultState} />}
         </div>
         <ToastContainer />
       </div>

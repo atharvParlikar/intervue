@@ -1,8 +1,13 @@
-import { forwardRef, useContext, useImperativeHandle, useRef } from 'react';
-import { Mic, MicOff, VideocamOutlined, VideocamOffOutlined } from "@mui/icons-material";
-import IconButton from './ui/IconButton';
-import "../App.css"
-import { VideoSettingsContext } from '../contexts/video-settings';
+import { forwardRef, useContext, useImperativeHandle, useRef } from "react";
+import {
+  Mic,
+  MicOff,
+  VideocamOutlined,
+  VideocamOffOutlined,
+} from "@mui/icons-material";
+import IconButton from "./ui/IconButton";
+import "../App.css";
+import { VideoSettingsContext } from "../contexts/video-settings";
 
 interface VideoRenderHandles {
   getLocalVideo: () => HTMLVideoElement | null;
@@ -40,12 +45,16 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
             <IconButton
               backgroundColor={videoSettings.mic ? "#2b2d42" : "#ef233c"}
               Icon={videoSettings.mic ? Mic : MicOff}
-              onClick={() => setVideoSettings(x => ({ ...x, mic: !x.mic }))}
+              onClick={() => setVideoSettings((x) => ({ ...x, mic: !x.mic }))}
             />
             <IconButton
               backgroundColor={videoSettings.video ? "#2b2d42" : "#ef233c"}
-              Icon={videoSettings.video ? VideocamOutlined : VideocamOffOutlined}
-              onClick={() => setVideoSettings(x => ({ ...x, video: !x.video }))}
+              Icon={
+                videoSettings.video ? VideocamOutlined : VideocamOffOutlined
+              }
+              onClick={() =>
+                setVideoSettings((x) => ({ ...x, video: !x.video }))
+              }
             />
           </div>
         </div>

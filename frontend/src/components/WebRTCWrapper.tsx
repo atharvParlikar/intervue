@@ -1,10 +1,4 @@
-import React, {
-  useEffect,
-  useRef,
-  useState,
-  useContext,
-  useCallback,
-} from "react";
+import { useEffect, useRef, useState, useContext, useCallback } from "react";
 import Peer, { MediaConnection } from "peerjs";
 import { socketContext } from "../socket";
 import VideoRender from "./VideoRender";

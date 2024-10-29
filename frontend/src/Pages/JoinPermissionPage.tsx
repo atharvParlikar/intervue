@@ -3,12 +3,12 @@ import { ToastContainer } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
 import { NavigateNext } from "@mui/icons-material";
-import { useEffect, useState, useRef, useContext } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { trpc } from "../client";
 // import Room from "./Room";
-import TestingPage from "./TestingPage";
-import { socketContext } from "../socket";
+// import TestingPage from "./TestingPage";
+import Room from "./Room";
 
 function JoinPermissionPage() {
   const { roomId } = useParams();
@@ -24,7 +24,6 @@ function JoinPermissionPage() {
       setRenderJoinRoom(false);
     },
   });
-  const socket = useContext(socketContext);
 
   const verificationRes = trpc.renderJoinpage.useQuery(
     { roomId: roomId! },
@@ -36,12 +35,6 @@ function JoinPermissionPage() {
   );
 
   const roomLiveRes = trpc.checkRoomLive.useQuery({ roomId: roomId! });
-
-  useEffect(() => {
-    if (!socket.connected) {
-      socket.connect();
-    }
-  }, [socket]);
 
   useEffect(() => {
     if (!verificationRes.isLoading) {
@@ -118,8 +111,8 @@ function JoinPermissionPage() {
             <JoinPageComponent />
           ) : (
             <div>
-              {/* <Room setIsRoomLive={setIsRoomLive} /> */}
-              <TestingPage />
+              <Room setIsRoomLive={setIsRoomLive} />
+              {/* <TestingPage /> */}
             </div>
           )
         ) : (

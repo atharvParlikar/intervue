@@ -1,4 +1,4 @@
-import { forwardRef, useContext, useImperativeHandle, useRef } from "react";
+import { forwardRef, useImperativeHandle, useRef } from "react";
 import {
   Mic,
   MicOff,
@@ -7,7 +7,7 @@ import {
 } from "@mui/icons-material";
 import IconButton from "./ui/IconButton";
 import "../App.css";
-import { VideoSettingsContext } from "../contexts/video-settings";
+import { useStore } from "../contexts/zustandStore";
 
 interface VideoRenderHandles {
   getLocalVideo: () => HTMLVideoElement | null;
@@ -17,8 +17,8 @@ interface VideoRenderHandles {
 const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const { videoSettings, updateVideoSettings } = useStore();
   // const [hideSelf, setHideSelf] = useState<boolean>(true);
-  const { videoSettings, setVideoSettings } = useContext(VideoSettingsContext)!;
 
   useImperativeHandle(ref, () => ({
     getLocalVideo: () => localVideoRef.current,
@@ -45,7 +45,12 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
             <IconButton
               backgroundColor={videoSettings.mic ? "#2b2d42" : "#ef233c"}
               Icon={videoSettings.mic ? Mic : MicOff}
-              onClick={() => setVideoSettings((x) => ({ ...x, mic: !x.mic }))}
+              onClick={() =>
+                updateVideoSettings({
+                  ...videoSettings,
+                  mic: !videoSettings.mic,
+                })
+              }
             />
             <IconButton
               backgroundColor={videoSettings.video ? "#2b2d42" : "#ef233c"}
@@ -53,7 +58,10 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
                 videoSettings.video ? VideocamOutlined : VideocamOffOutlined
               }
               onClick={() =>
-                setVideoSettings((x) => ({ ...x, video: !x.video }))
+                updateVideoSettings({
+                  ...videoSettings,
+                  video: !videoSettings.video,
+                })
               }
             />
           </div>

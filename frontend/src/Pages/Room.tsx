@@ -106,6 +106,7 @@ function Room({ setIsRoomLive }: RoomProps) {
       <Topbar
         runCode={(code: string) => runCodeMutation.mutate({ code })}
         endMeeting={endMeeting}
+        toast={toast}
       />
       <div className="flex h-screen w-screen">
         <PanelGroup direction="horizontal">
@@ -119,7 +120,7 @@ function Room({ setIsRoomLive }: RoomProps) {
                 <Output />
               </Panel>
               <PanelResizeHandle />
-              <Panel defaultSize={50} minSize={25} className="bg-green-300">
+              <Panel defaultSize={50} minSize={25}>
                 {renderVideo && userType.current && (
                   <WebRTCWrapper userType={userType.current} />
                 )}

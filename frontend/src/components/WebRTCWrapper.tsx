@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useContext, useCallback } from "react";
 import Peer, { MediaConnection } from "peerjs";
 import { socketContext } from "../socket";
 import VideoRender from "./VideoRender";
-import { VideoSettingsContext } from "../contexts/video-settings";
+import { useStore } from "../contexts/zustandStore";
 
 interface Props {
   userType: string;
@@ -23,7 +23,8 @@ function VideoCall({ userType }: Props) {
   const token = localStorage.getItem("token");
 
   const socket = useContext(socketContext);
-  const { videoSettings } = useContext(VideoSettingsContext)!;
+
+  const { videoSettings } = useStore();
 
   const videoRenderRef = useRef<VideoRenderHandles | null>(null);
 
@@ -51,7 +52,7 @@ function VideoCall({ userType }: Props) {
       console.error("Error creating media stream:", error);
       return null;
     }
-  }, []);
+  }, [videoSettings.video, videoSettings.mic]);
 
   const call = useCallback(
     async (remotePeerId: string) => {
@@ -185,13 +186,6 @@ function VideoCall({ userType }: Props) {
     const updateStreamNew = async () => {
       console.log("updateStream called");
       if (!videoSettings.video) {
-        localStream.current?.getTracks().forEach((track) => {
-          console.log("This is a track: ", track.kind);
-          if (track.kind === "video") {
-            console.log("This is a video track");
-            track.stop();
-          }
-        });
         if (connectionRef.current) {
           connectionRef.current.peerConnection
             .getSenders()
@@ -201,6 +195,14 @@ function VideoCall({ userType }: Props) {
               }
             });
         }
+        let counter = 1;
+        localStream.current?.getTracks().forEach((track) => {
+          console.log("This is a track: ", track.kind);
+          if (track.kind === "video") {
+            console.log("video track: ", counter++);
+            track.stop();
+          }
+        });
       } else {
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -254,13 +256,13 @@ function VideoCall({ userType }: Props) {
 
   return (
     <div>
-      <button
-        onClick={async () => {
-          console.log(connectionRef.current?.peerConnection.getSenders());
-        }}
-      >
-        DEBUG
-      </button>
+      {/* <button */}
+      {/*   onClick={async () => { */}
+      {/*     console.log(connectionRef.current?.peerConnection.getSenders()); */}
+      {/*   }} */}
+      {/* > */}
+      {/*   DEBUG */}
+      {/* </button> */}
       <VideoRender ref={videoRenderRef} />
     </div>
   );

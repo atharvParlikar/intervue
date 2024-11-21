@@ -2,7 +2,7 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
-import { TRPCError, initTRPC } from "@trpc/server";
+import { TRPCError } from "@trpc/server";
 import * as trpcExpress from "@trpc/server/adapters/express";
 import { z } from "zod";
 
@@ -139,6 +139,8 @@ const appRouter = router({
         host: JSON.parse(roomImpure.host),
       };
 
+      console.log(`[joinRoom] room: ${room}`);
+
       const participant = {
         email,
         firstName,
@@ -201,15 +203,11 @@ const appRouter = router({
         roomId_: z.string(),
       }),
     )
-    .output(
-      z.object({
-        message: z.string(),
-        userType: z.string(),
-      }),
-    )
     .mutation(async ({ input, ctx }) => {
       const { socketId, roomId_ } = input;
       const { email } = ctx;
+
+      console.log("setSocket called : ", socketId);
 
       const inverseRooms = await redisClient.hGetAll("roomInverse");
       let inverseRoom: any;
@@ -449,16 +447,23 @@ const appRouter = router({
       if (!room) throw new TRPCError({ code: "NOT_FOUND" });
 
       const result = await judge({ code, language, problemFunction });
-      console.log(`[judge] result: `, result);
+      console.log(result);
+      if (typeof result === "string") {
+        console.error("[judge] failed to judge: ", result);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "failed to judge",
+        });
+      }
 
       const host = room.host.socketId;
       const participant = room.participant?.socketId;
 
       if (host) {
-        io.to(host).emit("judge", result);
+        io.to(host).emit("judge", JSON.stringify(result));
       }
       if (participant) {
-        io.to(participant).emit("judge", result);
+        io.to(participant).emit("judge", JSON.stringify(result));
       }
 
       return { success: true };

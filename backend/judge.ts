@@ -10,12 +10,42 @@ type TcodeObject = {
   problemFunction: string;
 };
 
+type TestResultPacket = {
+  testCase: number;
+  expected_output: any;
+  actual_output: any;
+  status: "pass" | "fail";
+};
+
+type TestResult =
+  | {
+      exitCode: 0;
+      results: TestResult[];
+    }
+  | { exitCode: 1; errorString: string };
+
 const testcases = [
   { input: [2, 2], output: 4 },
   { input: [-1, 1], output: 0 },
   { input: [0, 0], output: 0 },
   { input: [100, 200], output: 300 },
   { input: [-5, -3], output: -8 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
+  { input: [1.5, 2.5], output: 4 },
   { input: [1.5, 2.5], output: 4 },
   { input: [9999999, 1], output: 10000000 },
 ];
@@ -34,7 +64,7 @@ async function runPythonInDocker(
   pythonScript: string,
   problemFunction: string,
   testcases: Testcase[],
-) {
+): Promise<TestResult> {
   const tempDir = os.tmpdir();
   const scriptPath = path.join(tempDir, "script.py");
 
@@ -43,26 +73,23 @@ async function runPythonInDocker(
 
   console.log("[judge function] runFunction: ", runFunction);
 
-  const testcasesinjetion = `\ntestcases = [${testcases2.map((x) => JSON.stringify(x))}]\n`;
+  const testcasesinjetion = `\ntestcases = [${testcases.map((x) => JSON.stringify(x))}]\n`;
 
   const pythonTest =
     testcasesinjetion +
     `
 s = Solution()
-results = {"passed": [], "failed": []}
+results = []
 for i, testcase in enumerate(testcases):
-    print(testcase)
     expected_output = testcase["output"]
     actual_output = s.${problemFunction.split("(")[0]}(*testcases[i]["input"])
 
-    if actual_output == expected_output:
-        results["passed"].append(i+1)
-    else:
-        results["failed"].append({
-            "test_case": i+1,
-            "expected": expected_output,
-            "actual": actual_output
-        })
+    results.append({
+        "testCase": i+1,
+        "expected": expected_output,
+        "actual": actual_output,
+        "status": "pass" if expected_output == actual_output else "fail"
+    })
 print(json.dumps(results, indent=4))
 `;
 
@@ -75,9 +102,14 @@ print(json.dumps(results, indent=4))
       `docker run --rm -v ${scriptPath}:/script.py python:3.9-slim python /script.py`,
     );
 
-    return stdout || stderr;
+    console.log("[judge] stderr: ", stderr);
+
+    const stdoutObj = JSON.parse(stdout);
+
+    return { exitCode: 0, results: stdoutObj };
   } catch (error: any) {
-    return `Error: ${error.message}`;
+    const pythonError = error.message.split("\n").slice(1).join("\n");
+    return { exitCode: 1, errorString: pythonError };
   } finally {
     fs.unlink(scriptPath, (err) => {
       if (err) console.error(`Failed to delete temporary file: ${err}`);
@@ -90,6 +122,8 @@ export function judge(codeObject: TcodeObject) {
 
   switch (language) {
     case "python":
-      return runPythonInDocker(code, problemFunction, testcases2);
+      return runPythonInDocker(code, problemFunction, testcases);
+    default:
+      return { exitCode: 1, errorString: "Language not supported yet" };
   }
 }

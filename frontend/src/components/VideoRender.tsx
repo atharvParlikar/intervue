@@ -18,7 +18,6 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const { videoSettings, updateVideoSettings } = useStore();
-  // const [hideSelf, setHideSelf] = useState<boolean>(true);
 
   useImperativeHandle(ref, () => ({
     getLocalVideo: () => localVideoRef.current,
@@ -27,7 +26,7 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
 
   return (
     <div className="h-full drop-shadow-lg">
-      <div className="relative group w-full h-full bg-yellow-300">
+      <div className="relative group w-full h-full">
         <video
           ref={remoteVideoRef}
           className="w-full h-full object-cover videoElement"

@@ -36,7 +36,9 @@ async function handleDisconnect(socketId: string) {
 
 export const getRoomId = async (email: string): Promise<string | null> => {
   const inverseRooms = await redisClient.hGetAll("roomInverse");
-  const inverseRoom = JSON.parse(inverseRooms[email]);
+  const inverseRoomUnparsed = inverseRooms[email];
+  if (!inverseRoomUnparsed) return null;
+  const inverseRoom = JSON.parse(inverseRoomUnparsed);
   if (!inverseRoom) {
     console.error(
       `[connectionReady] No inverse room found for email: ${email}`,

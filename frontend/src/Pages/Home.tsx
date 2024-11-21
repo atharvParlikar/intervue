@@ -1,10 +1,10 @@
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import "../App.css";
 import { SignedIn } from "@clerk/clerk-react";
 import { useUser } from "@clerk/clerk-react";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import IconButton from "../components/ui/IconButton";
 import {
   Mic,
@@ -13,7 +13,6 @@ import {
   VideocamOffOutlined,
   NavigateNext,
 } from "@mui/icons-material";
-import { VideoSettingsContext } from "../contexts/video-settings";
 import { trpc } from "../client";
 
 function Home() {
@@ -21,7 +20,7 @@ function Home() {
   const [code, setCode] = useState("");
   const localVideo = useRef<HTMLVideoElement>(null!);
   const localStream = useRef<MediaStream | null>(null);
-  const { videoSettings, setVideoSettings } = useContext(VideoSettingsContext);
+  const { videoSettings, updateVideoSettings } = useStore();
 
   useEffect(() => {
     const setupStreams = async () => {
@@ -103,7 +102,10 @@ function Home() {
                   backgroundColor={videoSettings.mic ? "#2b2d42" : "#ef233c"}
                   Icon={videoSettings.mic ? Mic : MicOff}
                   onClick={() =>
-                    setVideoSettings((x) => ({ ...x, mic: !x.mic }))
+                    updateVideoSettings({
+                      ...videoSettings,
+                      mic: !videoSettings.mic,
+                    })
                   }
                 />
                 <IconButton
@@ -112,7 +114,10 @@ function Home() {
                     videoSettings.video ? VideocamOutlined : VideocamOffOutlined
                   }
                   onClick={() =>
-                    setVideoSettings((x) => ({ ...x, video: !x.video }))
+                    updateVideoSettings({
+                      ...videoSettings,
+                      video: !videoSettings.video,
+                    })
                   }
                 />
               </div>

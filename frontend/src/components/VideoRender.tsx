@@ -1,8 +1,13 @@
-import { forwardRef, useContext, useImperativeHandle, useRef } from 'react';
-import { Mic, MicOff, VideocamOutlined, VideocamOffOutlined } from "@mui/icons-material";
-import IconButton from './ui/IconButton';
-import "../App.css"
-import { VideoSettingsContext } from '../contexts/video-settings';
+import { forwardRef, useImperativeHandle, useRef } from "react";
+import {
+  Mic,
+  MicOff,
+  VideocamOutlined,
+  VideocamOffOutlined,
+} from "@mui/icons-material";
+import IconButton from "./ui/IconButton";
+import "../App.css";
+import { useStore } from "../contexts/zustandStore";
 
 interface VideoRenderHandles {
   getLocalVideo: () => HTMLVideoElement | null;
@@ -12,8 +17,7 @@ interface VideoRenderHandles {
 const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  // const [hideSelf, setHideSelf] = useState<boolean>(true);
-  const { videoSettings, setVideoSettings } = useContext(VideoSettingsContext)!;
+  const { videoSettings, updateVideoSettings } = useStore();
 
   useImperativeHandle(ref, () => ({
     getLocalVideo: () => localVideoRef.current,
@@ -22,7 +26,7 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
 
   return (
     <div className="h-full drop-shadow-lg">
-      <div className="relative group w-full h-full bg-yellow-300">
+      <div className="relative group w-full h-full">
         <video
           ref={remoteVideoRef}
           className="w-full h-full object-cover videoElement"
@@ -40,12 +44,24 @@ const VideoRender = forwardRef<{}, VideoRenderHandles>((_, ref) => {
             <IconButton
               backgroundColor={videoSettings.mic ? "#2b2d42" : "#ef233c"}
               Icon={videoSettings.mic ? Mic : MicOff}
-              onClick={() => setVideoSettings(x => ({ ...x, mic: !x.mic }))}
+              onClick={() =>
+                updateVideoSettings({
+                  ...videoSettings,
+                  mic: !videoSettings.mic,
+                })
+              }
             />
             <IconButton
               backgroundColor={videoSettings.video ? "#2b2d42" : "#ef233c"}
-              Icon={videoSettings.video ? VideocamOutlined : VideocamOffOutlined}
-              onClick={() => setVideoSettings(x => ({ ...x, video: !x.video }))}
+              Icon={
+                videoSettings.video ? VideocamOutlined : VideocamOffOutlined
+              }
+              onClick={() =>
+                updateVideoSettings({
+                  ...videoSettings,
+                  video: !videoSettings.video,
+                })
+              }
             />
           </div>
         </div>

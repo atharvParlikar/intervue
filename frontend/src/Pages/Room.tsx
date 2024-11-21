@@ -1,5 +1,5 @@
 import "../App.css";
-// import WebRTCWrapper from "./WebRTCWrapper";
+import WebRTCWrapper from "../components/WebRTCWrapper";
 import Output from "../components/Output";
 
 import { useParams } from "react-router-dom";
@@ -27,6 +27,7 @@ function Room({ setIsRoomLive }: RoomProps) {
   const userType = useRef<string | null>(null);
   const setSocketMutation = trpc.setSocket.useMutation({
     onSuccess: (data) => {
+      console.log("set socket success", data);
       userType.current = data.userType;
       setRenderVideo(true);
     },
@@ -54,6 +55,7 @@ function Room({ setIsRoomLive }: RoomProps) {
 
   useEffect(() => {
     socket.on("connect", () => {
+      console.log("connected");
       setSocket();
 
       socket.on("notify", (userObject: string, callback) => {
@@ -104,6 +106,7 @@ function Room({ setIsRoomLive }: RoomProps) {
       <Topbar
         runCode={(code: string) => runCodeMutation.mutate({ code })}
         endMeeting={endMeeting}
+        toast={toast}
       />
       <div className="flex h-screen w-screen">
         <PanelGroup direction="horizontal">
@@ -117,10 +120,10 @@ function Room({ setIsRoomLive }: RoomProps) {
                 <Output />
               </Panel>
               <PanelResizeHandle />
-              <Panel defaultSize={50} minSize={25} className="bg-green-300">
-                {/* {renderVideo && userType.current && ( */}
-                {/*   <WebRTCWrapper userType={userType.current} /> */}
-                {/* )} */}
+              <Panel defaultSize={50} minSize={25}>
+                {renderVideo && userType.current && (
+                  <WebRTCWrapper userType={userType.current} />
+                )}
               </Panel>
             </PanelGroup>
           </Panel>

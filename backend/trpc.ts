@@ -17,7 +17,8 @@ const authMiddleware = t.middleware(async ({ ctx, next }) => {
     });
   }
 
-  const token = authorizationHeader.split(" ")[1]; // 'Bearer <token>'
+  const token = authorizationHeader.split(" ")[1]; // Bearer <token>
+
   if (!token) {
     throw new TRPCError({
       code: "UNAUTHORIZED",

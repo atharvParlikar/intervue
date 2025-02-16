@@ -8,7 +8,6 @@ import { z } from "zod";
 
 // DB and socket stuff.
 import { configDotenv } from "dotenv";
-import { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { privateProcedure, publicProcedure, router } from "./trpc";
 import { Socket, Server } from "socket.io";
 import { createContext } from "./context";
@@ -19,6 +18,8 @@ import { judge } from "./judge";
 
 configDotenv();
 
+const PORT = 8000;
+
 const app = express();
 app.use(cors());
 
@@ -26,30 +27,11 @@ const server = new http.Server(app);
 
 export const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "http://localhost:3000",
     methods: ["GET", "POST"],
   },
   transports: ["websocket", "polling"],
 });
-
-type User = {
-  email: string;
-  firstName: string;
-  socketId: string;
-};
-
-type Room = {
-  host: User;
-  participant: User | null;
-};
-
-type Rooms = {
-  [key: string]: Room;
-};
-
-type Context = {
-  req: CreateExpressContextOptions;
-};
 
 io.on("connection", (socket: Socket) => {
   console.log(`⚡️: ${socket.id} user just connected`);
@@ -116,6 +98,8 @@ const appRouter = router({
       };
     }),
 
+  // NOTE: only the participant joins the room, if createRoom is called before
+  // no need to call joinRoom too.
   joinRoom: privateProcedure
     .input(
       z.object({
@@ -126,6 +110,7 @@ const appRouter = router({
       const { roomId } = input;
       const { email, firstName } = ctx;
 
+      // impure just means the json data is in string format not parsed
       const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
 
       if (!roomImpure) {
@@ -139,7 +124,8 @@ const appRouter = router({
         host: JSON.parse(roomImpure.host),
       };
 
-      console.log(`[joinRoom] room: ${room}`);
+      console.log(`[joinRoom] room:`);
+      console.log(room)
 
       const participant = {
         email,
@@ -148,18 +134,15 @@ const appRouter = router({
 
       try {
         console.log(`[joinRoom] Notifying host ${room.host.socketId}`);
-        const hostResponse = await emitAndWait<boolean>(
-          room.host.socketId!,
-          "notify",
-          JSON.stringify({ email, firstName }),
-        );
 
-        if (!hostResponse) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "Host has denied access",
-          });
-        }
+        //  TODO: implement the purely socket based room permission system
+        //        none of this keeping http alive until host responds BS!
+
+        // const hostResponse = await emitAndWait<boolean>(
+        //   room.host.socketId!,
+        //   "notify",
+        //   JSON.stringify({ email, firstName }),
+        // );
 
         try {
           await redisClient.hSet(
@@ -480,6 +463,6 @@ app.use(
   }),
 );
 
-server.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
+server.listen(PORT, () => {
+  console.log("Server running on http://localhost:" + PORT);
 });

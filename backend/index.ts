@@ -8,7 +8,7 @@ import { spawn } from "child_process";
 import { createClient } from "redis";
 
 const app = express();
-const PORT = 3000;
+const PORT = 8000;
 
 configDotenv();
 

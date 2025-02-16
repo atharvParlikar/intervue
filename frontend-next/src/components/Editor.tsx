@@ -1,18 +1,21 @@
-import React, { useRef, useEffect, useContext } from "react";
+/* eslint-disable react-hooks/exhaustive-deps */
+"use client"
+
+import React, { useRef, useEffect } from "react";
 
 import { EditorState } from "@codemirror/state";
 import { keymap } from "@codemirror/view";
 import { EditorView, basicSetup } from "codemirror";
 import { python } from "@codemirror/lang-python";
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
-import { socketContext } from "../socket";
-import { tokyoNight } from "@uiw/codemirror-theme-tokyo-night";
+import { dracula } from "thememirror"
 
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";
 import { WebrtcProvider } from "y-webrtc";
-import { useStore } from "../contexts/zustandStore";
-import { trpc } from "../client";
+import { useStore } from "@/contexts/store";
+import { trpc } from "@/lib/trpc";
+import { getSocket } from "@/lib/socketChannel";
 
 type EditorProps = {
   roomId: string;
@@ -21,7 +24,7 @@ type EditorProps = {
 
 const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
   const editor = useRef<null | HTMLDivElement>(null);
-  const socket = useContext(socketContext);
+  const socket = getSocket();
   const viewRef = useRef<EditorView | null>(null);
   const shouldEmit = useRef(true);
   const providerRef = useRef<WebrtcProvider | null>(null);
@@ -64,11 +67,11 @@ const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
     const startState = EditorState.create({
       doc: "",
       extensions: [
+        dracula,
         basicSetup,
         keymap.of([defaultKeymap, indentWithTab]),
         python(),
         onUpdate,
-        tokyoNight,
         yCollab(yText, provider.awareness, { undoManager }),
       ],
     });
@@ -133,14 +136,13 @@ const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
     }
 
     return () => {
-      socket.off("editor-val");
+      socket?.off("editor-val");
     };
   }, [socket]);
 
   return (
     <div className={`h-full bg-tokyonightBase`}>
-      <div ref={editor}></div>
-      {/* <Button onClick={() => console.log(code)}>Click me</Button> */}
+      <div className="h-full" ref={editor}></div>
     </div>
   );
 };

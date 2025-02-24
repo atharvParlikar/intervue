@@ -2,68 +2,51 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
+import { Input } from "@/components/ui/input";
+import VideoSelf from "@/components/VideoSelf";
+import { useState } from "react";
 
 export default function Page() {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const videoStream = useRef<MediaStream | null>(null);
-
   const router = useRouter();
+  const [roomId, setRoomId] = useState("");
 
-  const generateRandomId = (): string => {
-    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    let id = "";
-    for (let i = 0; i < 4; i++) {
-      id += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return id;
-  };
-
-  const createRoomMutation = trpc.createRoom.useMutation({
-    onSuccess: (data) => {
-      toast.success("room created successfully!")
-      router.replace("/room/" + data.roomId)
+  const joinRoomMutation = trpc.joinRoom.useMutation({
+    onSuccess: (response) => {
+      console.log(response);
+      toast.success(response.message);
+      router.replace(`/room/${response.roomId}`);
     },
-    onError: (error) => toast.error("ERROR: " + error.message),
+    onError: (error) => {
+      toast.error(error.message);
+    },
   });
 
-  const createRoom = () => {
-    const roomId = generateRandomId();
-    createRoomMutation.mutate({ roomId });
-  }
-
-  useEffect(() => {
-    const setupStreams = async () => {
-      if (videoRef.current) {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        videoStream.current = mediaStream;
-        videoRef.current.srcObject = mediaStream;
-      }
-    }
-    setupStreams();
-
-    return () => {
-      videoStream.current?.getTracks().forEach((track) => {
-        track.stop();
-      })
-    }
-  }, [videoRef.current])
+  const joinRoom = () => {
+    joinRoomMutation.mutate({ roomId });
+  };
 
   return (
     <div className="flex justify-center h-screen items-center">
       <div className="flex flex-col gap-4 rounded-md">
-        <h1 className="text-2xl mx-auto">笑って、あなたはカメラに映っています</h1>
-        <div>
-          <video className="localVideo" autoPlay muted ref={videoRef} />
-        </div>
-        <div className="flex gap-4 justify-center">
-          <Button>Join</Button>
-          <Button onClick={createRoom}>Create</Button>
+        <h1 className="text-2xl mx-auto">
+          笑って、あなたはカメラに映っています
+        </h1>
+
+        <VideoSelf />
+
+        <div className="flex gap-4 justify-center items-center h-14">
+          <Input
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value)}
+            className="w-1/2"
+            placeholder="a1b2c3"
+          />
+          <Button onClick={joinRoom}>Join</Button>
         </div>
       </div>
     </div>
-  )
+  );
 }

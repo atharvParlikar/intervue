@@ -4,34 +4,24 @@ import { verifyToken } from "@clerk/backend";
 import { Room } from "./schemas";
 
 async function handleDisconnect(socketId: string) {
-  try {
-    const roomKeys = await redisClient.keys("room:*");
-    for (const roomKey of roomKeys) {
-      const room = await redisClient.hGetAll(roomKey);
-      if (JSON.parse(room.host).socketId === socketId) {
-        await redisClient.hSet(
-          roomKey,
-          "host",
-          JSON.stringify({ ...JSON.parse(room.host), socketId: "" }),
-        );
-        break;
-      }
-      if (
-        room.participant &&
-        JSON.parse(room.participant).socketId === socketId
-      ) {
-        await redisClient.hSet(
-          roomKey,
-          "participant",
-          JSON.stringify({ ...JSON.parse(room.participant), socketId: "" }),
-        );
-        break;
-      }
-    }
-  } catch (error) {
-    console.error("[handleDisconnect] Error:", error);
-    throw new Error("Failed to handle disconnect");
-  }
+  console.log(`🔥 ${socketId} disconnected`);
+  const email = await redisClient.hGet("socketInverse", socketId);
+  if (!email) return;
+  const { roomId, userType } = JSON.parse(
+    (await redisClient.hGet("roomInverse", email))!,
+  );
+
+  const room = await getRoomFromEmail(email);
+
+  if (!room) return;
+
+  const key = userType === "host" ? "host" : "participant";
+  console.log(room);
+  const updatedData = { ...JSON.parse(room[key]), socketId: "" };
+
+  await redisClient.hSet(`room:${roomId}`, key, JSON.stringify(updatedData));
+
+  await redisClient.hDel("socketInverse", socketId);
 }
 
 export const getRoomId = async (email: string): Promise<string | null> => {
@@ -68,9 +58,23 @@ export const getRoom = async (roomId: string): Promise<Room | null> => {
   try {
     participant = JSON.parse(roomImpure.participant);
     return { ...room, participant };
-  } catch (_) { }
+  } catch (_) {}
 
   return room;
+};
+
+export const getRoomFromEmail = async (email: string) => {
+  const roomString = await redisClient.hGet("roomInverse", email);
+  if (!roomString) return null;
+  try {
+    const { roomId } = JSON.parse(roomString);
+    console.log(roomId);
+    const room = await redisClient.hGetAll(`room:${roomId}`);
+    console.log("room: ", room);
+    return room;
+  } catch (_) {
+    return null;
+  }
 };
 
 export const socketEvents = (io: Server, socket: Socket) => {
@@ -88,8 +92,6 @@ export const socketEvents = (io: Server, socket: Socket) => {
       socket.emit("error", "Failed to accept join request");
     }
   });
-
-
 
   socket.on("kill", async (token: string) => {
     console.log(`[kill] Received kill request from ${socket.id}`);

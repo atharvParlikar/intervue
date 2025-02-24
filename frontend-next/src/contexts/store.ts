@@ -12,13 +12,18 @@ type Store = {
   updateVideoSettings: (newVideoSettings: VideoSettingsT) => void;
   wsReady: boolean;
   setWsReady: (ready: boolean) => void;
+  socketId: string | null;
+  setSocketId: (socketId: string) => void;
 };
 
 export const useStore = create<Store>((set) => ({
   code: "",
-  updateCode: (newCode: string) => set({ code: newCode }),
+  updateCode: (newCode) => set({ code: newCode }),
   videoSettings: { video: true, mic: true },
-  updateVideoSettings: (newVideoSettings: VideoSettingsT) => set({ videoSettings: newVideoSettings }),
+  updateVideoSettings: (newVideoSettings) =>
+    set({ videoSettings: newVideoSettings }),
   wsReady: false,
-  setWsReady: (ready) => set({ wsReady: ready })
+  setWsReady: (ready) => set({ wsReady: ready }),
+  socketId: null,
+  setSocketId: (socketId) => set({ socketId }),
 }));

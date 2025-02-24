@@ -1,5 +1,3 @@
-'use client';
-
 import { createTRPCReact } from '@trpc/react-query';
 import { httpBatchLink } from '@trpc/client';
 import type { AppRouter } from '../../../backend/index-trpc';
@@ -11,11 +9,11 @@ export function getTrpcClient() {
     links: [
       httpBatchLink({
         url: 'http://localhost:8000/trpc',
-        headers: (() => {
+        headers: () => {
           if (typeof window === 'undefined') return {}; // prevent nextjs server error
           const token = localStorage.getItem("token");
           return token ? { Authorization: `Bearer: ${token}` } : {};
-        })(),
+        },
       })
     ],
   });

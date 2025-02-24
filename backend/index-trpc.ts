@@ -62,16 +62,33 @@ function emitAndWait<T>(
   });
 }
 
+const checkUserExists = async ({
+  email,
+  roomId,
+}: {
+  email: string;
+  roomId: string;
+}) => {
+  const inverseRooms = await redisClient.hGetAll("roomInverse");
+  const user: { roomId: string; userType: "host" | "participant" } = JSON.parse(
+    inverseRooms[email],
+  );
+
+  if (!user) return false;
+  return user.roomId === roomId;
+};
+
 // Define procedures
 const appRouter = router({
   createRoom: privateProcedure
     .input(
       z.object({
         roomId: z.string(),
+        isPrivate: z.boolean(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { roomId } = input;
+      const { roomId, isPrivate } = input;
       const { email, firstName } = ctx;
 
       console.log("Got here");
@@ -84,6 +101,13 @@ const appRouter = router({
           firstName,
         }),
       );
+
+      await redisClient.hSet(
+        `room:${roomId}`,
+        "private",
+        isPrivate ? "true" : "false",
+      );
+
       console.log("[POST /createRoom] Room info saved in database");
 
       await redisClient.hSet(
@@ -99,7 +123,7 @@ const appRouter = router({
     }),
 
   // NOTE: only the participant joins the room, if createRoom is called before
-  // no need to call joinRoom too.
+  //       no need to call joinRoom too.
   joinRoom: privateProcedure
     .input(
       z.object({
@@ -120,29 +144,55 @@ const appRouter = router({
         });
       }
 
+      if (roomImpure.participant) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Room is full (2/2)",
+        });
+      }
+
       const room = {
         host: JSON.parse(roomImpure.host),
+        isPrivate: roomImpure.isPrivate === "true" ? true : false,
       };
 
       console.log(`[joinRoom] room:`);
-      console.log(room)
+      console.log(room);
 
       const participant = {
         email,
         firstName,
       };
 
+      if (!room.isPrivate) {
+        // add participant in room
+        await redisClient.hSet(
+          `room:${roomId}`,
+          "participant",
+          JSON.stringify(participant),
+        );
+
+        // add user in roomInverse
+        await redisClient.hSet(
+          "roomInverse",
+          email,
+          JSON.stringify({ roomId, userType: "participant" }),
+        );
+
+        return {
+          message: "Joined room successfully",
+          roomId,
+        };
+      }
+
       try {
         console.log(`[joinRoom] Notifying host ${room.host.socketId}`);
 
-        //  TODO: implement the purely socket based room permission system
-        //        none of this keeping http alive until host responds BS!
-
-        // const hostResponse = await emitAndWait<boolean>(
-        //   room.host.socketId!,
-        //   "notify",
-        //   JSON.stringify({ email, firstName }),
-        // );
+        const hostResponse = await emitAndWait<boolean>(
+          room.host.socketId!,
+          "notify",
+          JSON.stringify({ email, firstName }),
+        );
 
         try {
           await redisClient.hSet(
@@ -179,18 +229,37 @@ const appRouter = router({
       }
     }),
 
+  exitRoom: privateProcedure.mutation(async ({ ctx }) => {
+    const { email } = ctx;
+
+    const userString = await redisClient.hGet("roomInverse", email);
+    if (!userString) return;
+
+    const user = JSON.parse(userString);
+    if (!user) return;
+
+    const { roomId, userType } = user;
+
+    await redisClient.hDel(`room:${roomId}`, userType);
+    await redisClient.hDel("roomInverse", email);
+
+    console.log(`${email} exited room ${roomId} sucessfully!!!`);
+    return;
+  }),
+
   setSocket: privateProcedure
     .input(
       z.object({
         socketId: z.string(),
-        roomId_: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { socketId, roomId_ } = input;
+      const { socketId } = input;
       const { email } = ctx;
 
       console.log("setSocket called : ", socketId);
+
+      await redisClient.hSet("socketInverse", socketId, email);
 
       const inverseRooms = await redisClient.hGetAll("roomInverse");
       let inverseRoom: any;
@@ -201,7 +270,7 @@ const appRouter = router({
         inverseRoom = null;
       }
 
-      const roomId = inverseRoom?.roomId ?? roomId_;
+      const roomId = inverseRoom?.roomId;
 
       if (inverseRoom?.userType === "host") {
         console.log(
@@ -324,6 +393,19 @@ const appRouter = router({
       return { isHost: false };
     }),
 
+  checkUserExists: privateProcedure
+    .input(z.object({ roomId: z.string() }))
+    .output(z.object({ isInRoom: z.boolean() }))
+    .query(async ({ input, ctx }) => {
+      const { roomId } = input;
+      const { email } = ctx;
+
+      checkUserExists({ email, roomId });
+
+      // TODO: do the actual check
+      return { isInRoom: true };
+    }),
+
   checkRoomLive: publicProcedure
     .input(z.object({ roomId: z.string() }))
     .output(z.object({ isLive: z.boolean() }))
@@ -340,6 +422,7 @@ const appRouter = router({
 
       return { isLive: true };
     }),
+
   runCode: privateProcedure
     .input(
       z.object({
@@ -410,6 +493,7 @@ const appRouter = router({
         };
       });
     }),
+
   judge: privateProcedure
     .input(
       z.object({

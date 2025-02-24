@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-"use client"
+"use client";
 
 import React, { useRef, useEffect } from "react";
 
@@ -8,7 +8,7 @@ import { keymap } from "@codemirror/view";
 import { EditorView, basicSetup } from "codemirror";
 import { python } from "@codemirror/lang-python";
 import { defaultKeymap, indentWithTab } from "@codemirror/commands";
-import { dracula } from "thememirror"
+import { dracula } from "thememirror";
 
 import * as Y from "yjs";
 import { yCollab } from "y-codemirror.next";

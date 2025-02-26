@@ -55,7 +55,7 @@ export default function Room() {
         <ResizablePanel className="bg-[#2C2F3F]" defaultSize={60}>
           <Editor roomId={params.roomId} />
         </ResizablePanel>
-        <ResizableHandle withHandle />
+        <ResizableHandle withHandle className="w-fit" />
         <ResizablePanel defaultSize={40}>
           <ResizablePanelGroup direction="vertical">
             <ResizablePanel

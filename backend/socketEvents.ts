@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import redisClient from "./redis";
 import { verifyToken } from "@clerk/backend";
 import { Room } from "./schemas";
+import { Verify } from "crypto";
 
 async function handleDisconnect(socketId: string) {
   console.log(`🔥 ${socketId} disconnected`);
@@ -23,6 +24,33 @@ async function handleDisconnect(socketId: string) {
 
   await redisClient.hDel("socketInverse", socketId);
 }
+
+export const verifyJWT = async (
+  token: string,
+): Promise<{ email: string; firstName: string } | null> => {
+  try {
+    const jwtKey = process.env.JWT_PUBLIC_KEY?.replace(/\\n/g, "\n");
+
+    if (!jwtKey) {
+      throw new Error("JWT public key is missing");
+    }
+
+    const verifiedToken = await verifyToken(token, {
+      jwtKey,
+    });
+
+    const email = verifiedToken.email as string;
+    const firstName = verifiedToken.firstName as string;
+
+    return {
+      email,
+      firstName,
+    };
+  } catch (error: any) {
+    console.error("JWT verification failed:", error.message);
+    return null;
+  }
+};
 
 export const getRoomId = async (email: string): Promise<string | null> => {
   const inverseRooms = await redisClient.hGetAll("roomInverse");
@@ -92,6 +120,33 @@ export const socketEvents = (io: Server, socket: Socket) => {
       socket.emit("error", "Failed to accept join request");
     }
   });
+
+  socket.on("joinRoom", async ({ roomId, token }) => {
+    console.log("[temp] roomId: ", roomId);
+    console.log("[temp] token: ", token);
+    const packet = await verifyJWT(token);
+    if (!packet) {
+      socket.emit("joinRoomResponse", {
+        success: false,
+        message: "not logged in",
+      });
+      return;
+    }
+    const { email, firstName } = packet;
+    const room = await getRoom(roomId);
+    if (!room) {
+      socket.emit("joinRoomResponse", {
+        success: false,
+        message: "room does not exist",
+      });
+      return;
+    }
+
+    const hostSocketId = room.host.socketId!;
+    io.to(hostSocketId).emit("join-consent", { email, firstName, roomId });
+  });
+
+  socket.on("join-consent-response", async ({}) => {});
 
   socket.on("kill", async (token: string) => {
     console.log(`[kill] Received kill request from ${socket.id}`);

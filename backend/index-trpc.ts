@@ -39,29 +39,6 @@ io.on("connection", (socket: Socket) => {
   socketEvents(io, socket);
 });
 
-type EmitCallback<T> = (response: T) => void;
-
-function emitAndWait<T>(
-  socketId: string,
-  eventName: string,
-  data: any,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const socket = io.sockets.sockets.get(socketId);
-    console.log(`[emitAndWait] Attempting to emit to socket ${socketId}`);
-    if (!socket) {
-      console.error(`[emitAndWait] Socket not found for ID: ${socketId}`);
-      reject(new Error("Socket not found"));
-      return;
-    }
-
-    socket.emit(eventName, data, ((response: T) => {
-      console.log(`[emitAndWait] Received response for event ${eventName}`);
-      resolve(response);
-    }) as EmitCallback<T>);
-  });
-}
-
 const checkUserExists = async ({
   email,
   roomId,
@@ -91,8 +68,7 @@ const appRouter = router({
       const { roomId, isPrivate } = input;
       const { email, firstName } = ctx;
 
-      console.log("Got here");
-
+      // set host of room
       await redisClient.hSet(
         `room:${roomId}`,
         "host",
@@ -102,13 +78,12 @@ const appRouter = router({
         }),
       );
 
+      // set private status of room
       await redisClient.hSet(
         `room:${roomId}`,
         "private",
         isPrivate ? "true" : "false",
       );
-
-      console.log("[POST /createRoom] Room info saved in database");
 
       await redisClient.hSet(
         "roomInverse",
@@ -134,17 +109,16 @@ const appRouter = router({
       const { roomId } = input;
       const { email, firstName } = ctx;
 
-      // impure just means the json data is in string format not parsed
-      const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
+      const roomString = await redisClient.hGetAll(`room:${roomId}`);
 
-      if (!roomImpure) {
+      if (!roomString) {
         throw new TRPCError({
           code: "CONFLICT",
           message: "Room doesn't exist",
         });
       }
 
-      if (roomImpure.participant) {
+      if (roomString.participant) {
         throw new TRPCError({
           code: "CONFLICT",
           message: "Room is full (2/2)",
@@ -152,19 +126,19 @@ const appRouter = router({
       }
 
       const room = {
-        host: JSON.parse(roomImpure.host),
-        isPrivate: roomImpure.isPrivate === "true" ? true : false,
+        host: JSON.parse(roomString.host),
+        private: roomString.private === "true" ? true : false,
       };
-
-      console.log(`[joinRoom] room:`);
-      console.log(room);
 
       const participant = {
         email,
         firstName,
       };
 
-      if (!room.isPrivate) {
+      if (room.private) {
+      }
+
+      if (!room.private) {
         // add participant in room
         await redisClient.hSet(
           `room:${roomId}`,
@@ -183,49 +157,6 @@ const appRouter = router({
           message: "Joined room successfully",
           roomId,
         };
-      }
-
-      try {
-        console.log(`[joinRoom] Notifying host ${room.host.socketId}`);
-
-        const hostResponse = await emitAndWait<boolean>(
-          room.host.socketId!,
-          "notify",
-          JSON.stringify({ email, firstName }),
-        );
-
-        try {
-          await redisClient.hSet(
-            `room:${roomId}`,
-            "participant",
-            JSON.stringify(participant),
-          );
-          console.log("[joinRoom] Room updated with participant");
-
-          await redisClient.hSet(
-            "roomInverse",
-            email,
-            JSON.stringify({ roomId, userType: "participant" }),
-          );
-          console.log("[joinRoom] Room inverse saved in database");
-
-          return {
-            message: "Joined room successfully",
-            roomId,
-          };
-        } catch (e) {
-          console.error("[joinRoom] Error updating room or saving inverse:", e);
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: "Internal Server Error",
-          });
-        }
-      } catch (e) {
-        console.error("[joinRoom] Error:", e);
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Error notifying host or saving data",
-        });
       }
     }),
 
@@ -256,8 +187,6 @@ const appRouter = router({
     .mutation(async ({ input, ctx }) => {
       const { socketId } = input;
       const { email } = ctx;
-
-      console.log("setSocket called : ", socketId);
 
       await redisClient.hSet("socketInverse", socketId, email);
 
@@ -330,8 +259,6 @@ const appRouter = router({
       const { email } = ctx;
 
       const inverseRooms = await redisClient.hGetAll("roomInverse");
-      console.log("inverseRooms: ", inverseRooms);
-      console.log("email: ", email);
 
       // Check if the user exists in the inverseRooms
       const user = inverseRooms[email];
@@ -379,11 +306,7 @@ const appRouter = router({
       const { roomId } = input;
       const { email } = ctx;
 
-      console.log(roomId);
-      console.log(email);
-
       const room = await getRoom(roomId);
-      console.log("[GET /verifyHost] room: ", room);
       if (!room) return { isHost: false };
 
       const host = room.host;
@@ -400,10 +323,9 @@ const appRouter = router({
       const { roomId } = input;
       const { email } = ctx;
 
-      checkUserExists({ email, roomId });
+      const userExists = await checkUserExists({ email, roomId });
 
-      // TODO: do the actual check
-      return { isInRoom: true };
+      return { isInRoom: userExists };
     }),
 
   checkRoomLive: publicProcedure
@@ -411,10 +333,8 @@ const appRouter = router({
     .output(z.object({ isLive: z.boolean() }))
     .query(async ({ input }) => {
       const { roomId } = input;
-      console.log("roomId: ", roomId);
 
       const room = await getRoom(roomId);
-      console.log("room: ", room);
 
       if (!room) {
         return { isLive: false };
@@ -514,7 +434,6 @@ const appRouter = router({
       if (!room) throw new TRPCError({ code: "NOT_FOUND" });
 
       const result = await judge({ code, language, problemFunction });
-      console.log(result);
       if (typeof result === "string") {
         console.error("[judge] failed to judge: ", result);
         throw new TRPCError({

@@ -2,30 +2,34 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { trpc } from "@/lib/trpc";
-import { useRouter } from "next/navigation";
-import { toast } from "react-hot-toast";
 import { Input } from "@/components/ui/input";
 import VideoSelf from "@/components/VideoSelf";
+import { useStore } from "@/contexts/store";
+import { getSocket } from "@/lib/socketChannel";
 import { useState } from "react";
 
 export default function Page() {
-  const router = useRouter();
+  const { wsReady } = useStore();
   const [roomId, setRoomId] = useState("");
 
-  const joinRoomMutation = trpc.joinRoom.useMutation({
-    onSuccess: (response) => {
-      console.log(response);
-      toast.success(response.message);
-      router.replace(`/room/${response.roomId}`);
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
+  // const joinRoomMutation = trpc.joinRoom.useMutation({
+  //   onSuccess: (response) => {
+  //     if (response) {
+  //       toast.success(response.message);
+  //       router.replace(`/room/${response.roomId}`);
+  //     }
+  //   },
+  //   onError: (error) => {
+  //     toast.error(error.message);
+  //   },
+  // });
 
   const joinRoom = () => {
-    joinRoomMutation.mutate({ roomId });
+    const socket = getSocket()!;
+    socket.emit("joinRoom", {
+      roomId,
+      token: localStorage.getItem("token"),
+    });
   };
 
   return (
@@ -44,7 +48,9 @@ export default function Page() {
             className="w-1/2"
             placeholder="a1b2c3"
           />
-          <Button onClick={joinRoom}>Join</Button>
+          <Button disabled={!wsReady} onClick={joinRoom}>
+            Join
+          </Button>
         </div>
       </div>
     </div>

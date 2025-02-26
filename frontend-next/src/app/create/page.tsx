@@ -35,6 +35,7 @@ export default function Page() {
 
   const createRoom = () => {
     const roomId = generateRandomId();
+    console.log("room isPrivate: ", isPrivate);
     createRoomMutation.mutate({ roomId, isPrivate });
   };
 

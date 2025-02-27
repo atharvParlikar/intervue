@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePathname } from "next/navigation";
+import { useVideoStream } from "@/hooks/useVideoStream";
+import { useEffect } from "react";
 
 interface VideoComponentProps {
   width?: string;
@@ -10,38 +12,12 @@ const VideoSelf = ({
   width = "640px",
   height = "480px",
 }: VideoComponentProps) => {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const videoStream = useRef<MediaStream | null>(null);
-  const [cameraOn, setCameraOn] = useState(false);
+  const { videoRef, cameraOn, stopTracks } = useVideoStream();
+  const pathname = usePathname();
 
   useEffect(() => {
-    const setupStreams = async () => {
-      try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-        videoStream.current = mediaStream;
-        setCameraOn(true);
-      } catch (error) {
-        console.error("Error accessing media devices:", error);
-      }
-    };
-
-    setupStreams();
-
-    return () => {
-      videoStream.current?.getTracks().forEach((track) => {
-        track.stop();
-      });
-    };
-  }, []);
-
-  useEffect(() => {
-    if (videoRef.current && videoStream.current) {
-      videoRef.current.srcObject = videoStream.current;
-    }
-  }, [videoRef.current, videoStream.current]);
+    return () => stopTracks();
+  }, [pathname]);
 
   return (
     <>

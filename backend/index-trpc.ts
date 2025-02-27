@@ -182,10 +182,11 @@ const appRouter = router({
     .input(
       z.object({
         socketId: z.string(),
+        roomId: z.string(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
-      const { socketId } = input;
+      const { socketId, roomId } = input;
       const { email } = ctx;
 
       await redisClient.hSet("socketInverse", socketId, email);
@@ -199,7 +200,14 @@ const appRouter = router({
         inverseRoom = null;
       }
 
-      const roomId = inverseRoom?.roomId;
+      const userRoomId = inverseRoom?.roomId;
+
+      if (userRoomId !== roomId) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "user not in the room",
+        });
+      }
 
       if (inverseRoom?.userType === "host") {
         console.log(

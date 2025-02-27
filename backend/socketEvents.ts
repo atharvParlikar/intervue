@@ -2,7 +2,6 @@ import { Server, Socket } from "socket.io";
 import redisClient from "./redis";
 import { verifyToken } from "@clerk/backend";
 import { Room } from "./schemas";
-import { Verify } from "crypto";
 
 async function handleDisconnect(socketId: string) {
   console.log(`🔥 ${socketId} disconnected`);
@@ -126,8 +125,8 @@ export const socketEvents = (io: Server, socket: Socket) => {
     console.log("[temp] token: ", token);
     const packet = await verifyJWT(token);
     if (!packet) {
-      socket.emit("joinRoomResponse", {
-        success: false,
+      socket.emit("join-room-response", {
+        allowed: false,
         message: "not logged in",
       });
       return;
@@ -143,10 +142,56 @@ export const socketEvents = (io: Server, socket: Socket) => {
     }
 
     const hostSocketId = room.host.socketId!;
-    io.to(hostSocketId).emit("join-consent", { email, firstName, roomId });
+    io.to(hostSocketId).emit("join-consent", {
+      email,
+      firstName,
+      roomId,
+      senderSocket: socket.id,
+    });
   });
 
-  socket.on("join-consent-response", async ({}) => {});
+  socket.on(
+    "join-consent-response",
+    async ({ allowed, firstName, email, roomId, senderSocket }) => {
+      console.log("got join-consent-response");
+      // TODO: do not just return, send "senderSocket" not allowed.
+      if (!allowed) return;
+      const roomHost = await redisClient.hGet("socketInverse", socket.id);
+      if (!roomHost) return;
+      const roomString = await redisClient.hGet("roomInverse", roomHost);
+      if (!roomString) return;
+      const room = JSON.parse(roomString);
+      if (room.roomId === roomId && room.userType === "host") {
+        console.log("[temp] got till here");
+        await redisClient.hSet(
+          `room:${roomId}`,
+          "participant",
+          JSON.stringify({
+            email,
+            firstName,
+          }),
+        );
+        await redisClient.hSet(
+          "roomInverse",
+          email,
+          JSON.stringify({
+            roomId,
+            userType: "participant",
+          }),
+        );
+        console.log("sender-socket: ", senderSocket);
+        io.to(senderSocket).emit("join-consent-response", {
+          allowed: true,
+          roomId,
+        });
+        return;
+      }
+      io.to(senderSocket).emit("join-consent-response", {
+        allowed: true,
+        roomId,
+      });
+    },
+  );
 
   socket.on("kill", async (token: string) => {
     console.log(`[kill] Received kill request from ${socket.id}`);

@@ -16,17 +16,31 @@ export const initializeSocket = (URL: string) => {
     }
   });
 
-  socket.on("join-consent", ({ email, firstName, roomId }) => {
+  socket.on("join-consent", ({ email, firstName, roomId, senderSocket }) => {
     console.log("enter permission");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    toast((t: any) => (
-      <JoinConsent
-        toastId={t.id}
-        firstName={firstName}
-        email={email}
-        roomId={roomId}
-      />
-    ));
+    toast(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (t: any) => (
+        <JoinConsent
+          toastId={t.id}
+          firstName={firstName}
+          email={email}
+          roomId={roomId}
+          senderSocket={senderSocket}
+        />
+      ),
+      {
+        duration: 30000,
+      },
+    );
+  });
+
+  socket.on("join-consent-response", ({ allowed, roomId }) => {
+    console.log("got response");
+    console.log(allowed, roomId);
+    if (allowed) {
+      window.location.href = `/room/${roomId}`;
+    }
   });
 
   socket.on("disconnect", () => {

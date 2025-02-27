@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { useStore } from "@/contexts/store";
 import { Button } from "./ui/button";
 import { getSocket } from "@/lib/socketChannel";
-import { Socket } from "socket.io-client";
 import { X } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -13,6 +11,7 @@ interface joinConsentProps {
   email: string;
   toastId: string;
   roomId: string;
+  senderSocket: string;
 }
 
 export const JoinConsent = ({
@@ -20,6 +19,7 @@ export const JoinConsent = ({
   email,
   toastId,
   roomId,
+  senderSocket,
 }: joinConsentProps) => {
   const { wsReady } = useStore();
 
@@ -28,7 +28,9 @@ export const JoinConsent = ({
     socket.emit("join-consent-response", {
       allowed: true,
       email,
+      firstName,
       roomId,
+      senderSocket,
     });
     toast.dismiss(toastId);
   };
@@ -40,7 +42,9 @@ export const JoinConsent = ({
     socket.emit("join-consent-response", {
       allowed: false,
       email,
+      firstName,
       roomId,
+      senderSocket,
     });
     toast.dismiss(toastId);
   };

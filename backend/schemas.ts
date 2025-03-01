@@ -11,6 +11,7 @@ interface Room {
   roomId: string;
   host: User;
   participant?: User | null;
+  private: boolean;
 }
 
 interface RoomsInverse {

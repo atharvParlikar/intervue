@@ -237,18 +237,30 @@ const appRouter = router({
         );
 
         const user = await redisClient.hGet(`room:${roomId}`, "participant");
+        const peer = await redisClient.hGet(`room:${roomId}`, "host");
 
         if (!user) {
           throw new TRPCError({ code: "NOT_FOUND" });
         }
 
+        if (!peer) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+        }
+
         const userObj = JSON.parse(user);
+        const peerObj = JSON.parse(peer);
 
         await redisClient.hSet(
           `room:${roomId}`,
           "participant",
           JSON.stringify({ ...userObj, socketId }),
         );
+
+        if (peerObj.socketId) {
+          io.to(socketId).emit("peer-socket-id", {
+            peerSocketId: peerObj.socketId,
+          });
+        }
 
         return {
           message: "socket id set successfully",

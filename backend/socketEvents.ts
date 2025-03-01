@@ -78,6 +78,7 @@ export const getRoom = async (roomId: string): Promise<Room | null> => {
   const room: Room = {
     host: JSON.parse(roomImpure.host),
     roomId,
+    private: roomImpure.private === "true" ? true : false
   };
 
   let participant;
@@ -85,7 +86,7 @@ export const getRoom = async (roomId: string): Promise<Room | null> => {
   try {
     participant = JSON.parse(roomImpure.participant);
     return { ...room, participant };
-  } catch (_) {}
+  } catch (_) { }
 
   return room;
 };
@@ -140,13 +141,39 @@ export const socketEvents = (io: Server, socket: Socket) => {
       });
       return;
     }
+    if (room.private) {
+      const hostSocketId = room.host.socketId!;
+      io.to(hostSocketId).emit("join-consent", {
+        email,
+        firstName,
+        roomId,
+        senderSocket: socket.id,
+      });
+      return;
+    }
 
-    const hostSocketId = room.host.socketId!;
-    io.to(hostSocketId).emit("join-consent", {
+    // At this point room is not private, proceed with adding user to the database.
+    await redisClient.hSet(
+      `room:${roomId}`,
+      "participant",
+      JSON.stringify({
+        email,
+        firstName,
+      }),
+    );
+
+    await redisClient.hSet(
+      "roomInverse",
       email,
-      firstName,
+      JSON.stringify({
+        roomId,
+        userType: "participant",
+      }),
+    );
+
+    socket.emit("join-consent-response", {
+      allowed: true,
       roomId,
-      senderSocket: socket.id,
     });
   });
 
@@ -161,8 +188,8 @@ export const socketEvents = (io: Server, socket: Socket) => {
       const roomString = await redisClient.hGet("roomInverse", roomHost);
       if (!roomString) return;
       const room = JSON.parse(roomString);
+      // Make sure the person giving join-consent for room is present in that room is a host.
       if (room.roomId === roomId && room.userType === "host") {
-        console.log("[temp] got till here");
         await redisClient.hSet(
           `room:${roomId}`,
           "participant",
@@ -179,7 +206,6 @@ export const socketEvents = (io: Server, socket: Socket) => {
             userType: "participant",
           }),
         );
-        console.log("sender-socket: ", senderSocket);
         io.to(senderSocket).emit("join-consent-response", {
           allowed: true,
           roomId,

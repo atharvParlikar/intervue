@@ -17,7 +17,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     getToken({
       template: "user",
     }).then((token) => {
-      console.log("token: ", token);
       if (token) {
         localStorage.setItem("token", token);
       } else

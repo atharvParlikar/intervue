@@ -23,7 +23,7 @@ type EditorProps = {
 };
 
 const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
-  const editor = useRef<null | HTMLDivElement>(null);
+  const editor = useRef<HTMLDivElement | null>(null);
   const socket = getSocket();
   const viewRef = useRef<EditorView | null>(null);
   const shouldEmit = useRef(true);

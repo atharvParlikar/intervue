@@ -3,26 +3,17 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import VideoSelf from "@/components/VideoSelf";
+import VideoWithControls from "@/components/VideoWithControls";
 import { useStore } from "@/contexts/store";
+import { useVideoStream } from "@/hooks/useVideoStream";
 import { getSocket } from "@/lib/socketChannel";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function Page() {
   const { wsReady } = useStore();
   const [roomId, setRoomId] = useState("");
-
-  // const joinRoomMutation = trpc.joinRoom.useMutation({
-  //   onSuccess: (response) => {
-  //     if (response) {
-  //       toast.success(response.message);
-  //       router.replace(`/room/${response.roomId}`);
-  //     }
-  //   },
-  //   onError: (error) => {
-  //     toast.error(error.message);
-  //   },
-  // });
+  const { videoRef, streamOn, stopTrack, setVideoRefMounted
+  } = useVideoStream();
 
   const joinRoom = () => {
     const socket = getSocket()!;
@@ -39,7 +30,7 @@ export default function Page() {
           笑って、あなたはカメラに映っています
         </h1>
 
-        <VideoSelf />
+        <VideoWithControls videoRef={videoRef} streamOn={streamOn} stopTrack={stopTrack} setVideoRefMounted={setVideoRefMounted} selfVideo />
 
         <div className="flex gap-4 justify-center items-center h-14">
           <Input

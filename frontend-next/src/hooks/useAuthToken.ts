@@ -8,7 +8,6 @@ export function useAuthToken() {
 
   useEffect(() => {
     getToken({ template: "user" }).then((token) => {
-      console.log("token: ", token);
       if (token) {
         localStorage.setItem("token", token);
       } else {

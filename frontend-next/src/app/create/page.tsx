@@ -8,9 +8,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import VideoSelf from "@/components/VideoSelf";
+import VideoWithControls from "@/components/VideoWithControls";
+import { useVideoStream } from "@/hooks/useVideoStream";
 
 export default function Page() {
+  const { videoRef, streamOn, stopTrack } = useVideoStream();
   const [isPrivate, setIsPrivate] = useState<boolean>(true);
 
   const router = useRouter();
@@ -45,7 +47,7 @@ export default function Page() {
         <h1 className="text-2xl mx-auto">
           笑って、あなたはカメラに映っています
         </h1>
-        <VideoSelf />
+        <VideoWithControls videoRef={videoRef} streamOn={streamOn} stopTrack={stopTrack} selfVideo />
         <div className="flex justify-center mb-4">
           <Button onClick={createRoom}>Create</Button>
         </div>

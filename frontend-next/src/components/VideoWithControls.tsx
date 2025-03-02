@@ -1,13 +1,13 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { RefObject, useEffect } from "react";
 import { useStore } from "@/contexts/store";
 import { Button } from "./ui/button";
 
 interface VideoComponentProps {
   width?: string;
   height?: string;
-  videoRef: (node: HTMLVideoElement) => void;
+  videoRef: ((node: HTMLVideoElement) => void) | RefObject<HTMLVideoElement | null>;
   streamOn: boolean;
   stopTrack: ({ video, audio }: { video: boolean, audio: boolean }) => void;
   selfVideo?: boolean;

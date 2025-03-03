@@ -12,8 +12,7 @@ import { useEffect, useState } from "react";
 export default function Page() {
   const { wsReady } = useStore();
   const [roomId, setRoomId] = useState("");
-  const { videoRef, streamOn, stopTrack, setVideoRefMounted
-  } = useVideoStream();
+  const { videoRef, streamOn, stopTrack } = useVideoStream();
 
   const joinRoom = () => {
     const socket = getSocket()!;
@@ -30,7 +29,7 @@ export default function Page() {
           笑って、あなたはカメラに映っています
         </h1>
 
-        <VideoWithControls videoRef={videoRef} streamOn={streamOn} stopTrack={stopTrack} setVideoRefMounted={setVideoRefMounted} selfVideo />
+        <VideoWithControls videoRef={videoRef} streamOn={streamOn} stopTrack={stopTrack} selfVideo />
 
         <div className="flex gap-4 justify-center items-center h-14">
           <Input

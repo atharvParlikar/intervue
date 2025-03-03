@@ -19,11 +19,10 @@ const VideoWithControls = ({
   videoRef,
   streamOn,
   stopTrack,
-  selfVideo = false
+  selfVideo = false,
 }: VideoComponentProps) => {
   const { cameraOn, setCameraOn, micOn, setMicOn } = useStore();
   const pathname = usePathname();
-  console.log(videoRef);
 
   useEffect(() => {
     return () => stopTrack({ video: true, audio: true });

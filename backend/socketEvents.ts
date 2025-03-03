@@ -219,6 +219,19 @@ export const socketEvents = (io: Server, socket: Socket) => {
     },
   );
 
+  // simple-peer signaling start
+
+  socket.on("signal", ({ targetSocket, signal }) => {
+    console.log(signal);
+    io.to(targetSocket).emit("signal", { signal, sender: socket.id });
+  });
+
+  socket.on("requestPeerConnection", ({ targetSocket }) => {
+    io.to(targetSocket).emit("peerConnectionRequested", { sender: socket.id });
+  });
+
+  // simple-peer signaling end
+
   socket.on("kill", async (token: string) => {
     console.log(`[kill] Received kill request from ${socket.id}`);
     const jwt = await verifyToken(token, {

@@ -9,7 +9,6 @@ export const initializeSocket = (URL: string) => {
   socket = io(URL);
 
   socket.on("connect", () => {
-    console.log("Socket connection open!");
     useStore.getState().setWsReady(true);
     if (socket && socket.id) {
       useStore.getState().setSocketId(socket.id);

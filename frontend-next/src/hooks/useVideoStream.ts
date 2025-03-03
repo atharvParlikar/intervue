@@ -1,4 +1,4 @@
-import { useStore } from "@/contexts/store";
+import { TrackChangeT, useStore } from "@/contexts/store";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export const useVideoStream = () => {
@@ -6,19 +6,28 @@ export const useVideoStream = () => {
   const [streamOn, setStreamOn] = useState(false);
   const [videoRefMounted, setVideoRefMounted] = useState(false);
   const actualVideoRef = useRef<HTMLVideoElement | null>(null);
-  const { cameraOn, micOn } = useStore();
+  const { cameraOn, micOn, setTrackChange } = useStore();
 
   const stopTrack = ({ video, audio }: { video: boolean; audio: boolean }) => {
-    console.log("[stopTrack]: ", { video, audio });
+    let trackChange: TrackChangeT[] = [];
+
     videoStream.current?.getTracks().forEach((track) => {
       if (
         (video && track.kind === "video") ||
         (audio && track.kind === "audio")
       ) {
+        trackChange.push({
+          kind: track.kind,
+          changeType: "removed",
+          track: track
+        });
+
         track.stop();
         videoStream.current?.removeTrack(track);
       }
     });
+
+    setTrackChange(trackChange);
   };
 
   const videoRef = useCallback((node: HTMLVideoElement) => {
@@ -67,7 +76,15 @@ export const useVideoStream = () => {
             video: cameraOn,
           })
           .then((mediaStream) => {
-            videoStream.current?.addTrack(mediaStream.getVideoTracks()[0]);
+            const track = mediaStream.getVideoTracks()[0]
+            videoStream.current?.addTrack(track);
+            setTrackChange([
+              {
+                kind: "video",
+                changeType: "added",
+                track
+              }
+            ]);
           });
       }
       if (micOn) {
@@ -76,7 +93,15 @@ export const useVideoStream = () => {
             audio: micOn,
           })
           .then((mediaStream) => {
-            videoStream.current?.addTrack(mediaStream.getAudioTracks()[0]);
+            const track = mediaStream.getAudioTracks()[0];
+            videoStream.current?.addTrack(track);
+            setTrackChange([
+              {
+                kind: "audio",
+                changeType: "added",
+                track
+              }
+            ]);
           });
       }
     }

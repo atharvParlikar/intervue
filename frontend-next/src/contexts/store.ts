@@ -5,6 +5,12 @@ export type VideoSettingsT = {
   mic: boolean;
 };
 
+export type TrackChangeT = {
+  changeType: "added" | "removed";
+  track: MediaStreamTrack;
+  kind: "audio" | "video";
+}
+
 type Store = {
   code: string;
   updateCode: (newCode: string) => void;
@@ -20,6 +26,8 @@ type Store = {
   setCameraOn: (cameraOn: boolean) => void;
   micOn: boolean;
   setMicOn: (micOn: boolean) => void;
+  trackChange: TrackChangeT[];
+  setTrackChange: (trackChange: TrackChangeT[]) => void;
 };
 
 export const useStore = create<Store>((set) => ({
@@ -38,4 +46,6 @@ export const useStore = create<Store>((set) => ({
   setCameraOn: (cameraOn) => set({ cameraOn }),
   micOn: true,
   setMicOn: (micOn) => set({ micOn }),
+  trackChange: [],
+  setTrackChange: (trackChange) => set({ trackChange })
 }));

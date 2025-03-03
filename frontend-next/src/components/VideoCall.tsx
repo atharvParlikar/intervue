@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { MediaConnection, Peer } from "peerjs";
 import { useStore } from "@/contexts/store";
 import VideoWithControls from "./VideoWithControls";
+import { Button } from "./ui/button";
 
 export function VideoCall() {
   const { peerSocketId, socketId } = useStore();
@@ -28,7 +29,7 @@ export function VideoCall() {
     peerRef.current = peer;
 
     peer.on("call", (call) => {
-      console.log("Got call");
+      callRef.current = call;
       call.answer(stream);
       call.on("stream", (remoteStream: MediaStream) => {
         remoteStreamRef.current = remoteStream;
@@ -43,6 +44,7 @@ export function VideoCall() {
     };
   }, [socketId, streamOn]);
 
+  // Only the second peer (the one who joins last) gets peerSocketId and triggers this
   useEffect(() => {
     if (!peerSocketId || !peerRef.current || !videoStream.current) return;
 
@@ -63,6 +65,9 @@ export function VideoCall() {
   }, [pathname]);
 
   return (
-    <VideoWithControls videoRef={remoteVideoRef} stopTrack={stopTrack} streamOn={streamOn} />
+    <div>
+      <VideoWithControls videoRef={remoteVideoRef} stopTrack={stopTrack} streamOn={streamOn} />
+      <Button onClick={() => console.log(callRef.current?.peerConnection.getSenders())}>Debug</Button>
+    </div>
   );
 }

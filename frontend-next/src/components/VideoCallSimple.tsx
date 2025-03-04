@@ -3,6 +3,7 @@ import { getSocket } from "@/lib/socketChannel";
 import { useEffect, useRef, useState } from "react";
 import SimplePeer from "simple-peer";
 import VideoWithControls from "./VideoWithControls";
+import { useStore } from "@/contexts/store";
 
 export function VideoCallSimple() {
   const { videoStream, streamOn, stopTrack } = useVideoStream();
@@ -12,6 +13,11 @@ export function VideoCallSimple() {
   const [peerReady, setPeerReady] = useState<boolean>(false);
   const [signal, setSignal] = useState<SimplePeer.SignalData | null>(null);
   const socket = getSocket()!;
+  const { cameraOn, micOn } = useStore();
+  const localMediaState = useRef({
+    video: cameraOn,
+    micOn: micOn
+  })
 
   const createPeer = (stream: MediaStream, initiator: boolean) => {
     const peer = new SimplePeer({
@@ -49,14 +55,15 @@ export function VideoCallSimple() {
     socket.on("signal", ({ signal }: { signal: SimplePeer.SignalData }) => {
       setSignal(signal);
     });
+
+    socket.on("refresh-video", () => {
+      console.log("refreshing video");
+      if (!videoRef.current) return;
+      videoRef.current.srcObject = videoRef.current.srcObject;
+    });
   }, []);
 
   useEffect(() => {
-    console.log("videoStream: ");
-    console.log(videoStream.current);
-    console.log(streamOn);
-    console.log(initiator !== null);
-    console.log(videoStream.current);
     if (!(streamOn && initiator !== null && videoStream.current)) return;
 
     const peer = createPeer(videoStream.current, initiator);
@@ -74,9 +81,46 @@ export function VideoCallSimple() {
     setSignal((_) => null);
   }, [signal, peerReady]);
 
+  useEffect(() => {
+    if (!(videoStream.current && peerRef.current)) return;
+
+    if (cameraOn !== localMediaState.current.video) {
+      // Simple approach: enable/disable existing tracks
+      const videoTracks = videoStream.current.getTracks().filter(t => t.kind === "video");
+      console.log(videoTracks);
+
+      if (videoTracks.length > 0) {
+        // If we have existing tracks, just enable/disable them
+        videoTracks.forEach(track => {
+          if (!cameraOn) {
+            track.enabled = false;
+            track.stop();
+          } else {
+            navigator.mediaDevices.getUserMedia({ video: true })
+              .then((newStream) => {
+                const oldVideoTrack = videoStream.current?.getTracks().find(t => t.kind === "video")!;
+                const newVideoTrack = newStream.getTracks().find(t => t.kind === "video");
+                if (!newVideoTrack) return;
+
+                peerRef.current?.replaceTrack(oldVideoTrack, newVideoTrack, videoStream.current!);
+                socket.emit("refresh-video");
+
+                localMediaState.current.video = true;
+              })
+              .catch(err => {
+                console.error("Error accessing camera:", err);
+              });
+          }
+        });
+
+        localMediaState.current.video = cameraOn;
+      }
+    }
+  }, [cameraOn, micOn]);
+
   return (
     <div>
-      <VideoWithControls stopTrack={stopTrack} videoRef={videoRef} />
+      <VideoWithControls stopTrack={() => { }} videoRef={videoRef} />
     </div>
   );
 }

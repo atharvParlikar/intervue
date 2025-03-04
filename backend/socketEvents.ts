@@ -105,6 +105,32 @@ export const getRoomFromEmail = async (email: string) => {
   }
 };
 
+async function getPeerSocketId(socketId: string) {
+  const senderEmail = await redisClient.hGet("socketInverse", socketId);
+  if (!senderEmail) {
+    console.log("[ERROR] SOCKET ID is either not set or user is not in room");
+    return null;
+  }
+
+  const senderInfo = await redisClient.hGet("roomInverse", senderEmail);
+  if (!senderInfo) {
+    console.log("[ERROR] sender email is not associated with any room");
+    return null;
+  }
+
+  const senderInfoObj = JSON.parse(senderInfo);
+  const peerType = senderInfoObj.userType === "host" ? "participant" : "host";
+  const peer = await redisClient.hGet(`room:${senderInfoObj.roomId}`, peerType);
+
+  if (!peer) {
+    console.log(`[ERROR] No ${peerType} found in room ${senderInfoObj.roomId}`);
+    return null;
+  }
+
+  const peerObj = JSON.parse(peer);
+  return peerObj.socketId || null;
+}
+
 export const socketEvents = (io: Server, socket: Socket) => {
   socket.on("message", (message) => {
     console.log(`[message] Received message from ${socket.id}:`, message);
@@ -221,47 +247,20 @@ export const socketEvents = (io: Server, socket: Socket) => {
 
   // simple-peer signaling start
 
-  // socket.on("signal", ({ targetSocketId, signal }) => {
-  //   console.log(signal.type, " |> ", targetSocketId);
-  //   io.to(targetSocketId).emit("signal", { signal, sender: socket.id });
-  // });
-
   socket.on("signal", async ({ signal }) => {
-    const senderEmail = await redisClient.hGet("socketInverse", socket.id);
+    const peerSocketId = await getPeerSocketId(socket.id);
+    if (!peerSocketId) return;
 
-    if (!senderEmail) {
-      console.log("[ERROR] SOCKET ID is either not set or user is not in room");
-      return;
-    };
+    console.log(`[signal] |${signal.type}| ${socket.id} |> ${peerSocketId}`);
+    io.to(peerSocketId).emit("signal", { signal });
+  });
 
-    const senderInfo = await redisClient.hGet("roomInverse", senderEmail);
+  socket.on("refresh-video", async () => {
+    const peerSocketId = await getPeerSocketId(socket.id);
+    if (!peerSocketId) return;
 
-    if (!senderInfo) {
-      console.log("[ERROR] sender email is not associated with any room");
-      return;
-    };
-
-    const senderInfoObj = JSON.parse(senderInfo);
-
-
-    if (senderInfoObj.userType === "host") {
-      const peer = await redisClient.hGet(`room:${senderInfoObj.roomId}`, "participant");
-      if (!peer) return;
-      const peerObj = JSON.parse(peer);
-      const participantSocketId = peerObj.socketId;
-      if (!participantSocketId) return;
-      console.log(`[signal] |${signal.type}| ${socket.id} |> ${participantSocketId}`)
-      io.to(participantSocketId).emit("signal", { signal });
-    } else if (senderInfoObj.userType === "participant") {
-      const peer = await redisClient.hGet(`room:${senderInfoObj.roomId}`, "host");
-      if (!peer) return;
-      const peerObj = JSON.parse(peer);
-      const hostSocketId = peerObj.socketId;
-      if (!hostSocketId) return;
-      console.log(`[signal] |${signal.type}| ${socket.id} |> ${hostSocketId}`)
-      io.to(hostSocketId).emit("signal", { signal });
-    }
-  })
+    io.to(peerSocketId).emit("refresh-video");
+  });
 
   socket.on("requestPeerConnection", ({ targetSocket }) => {
     io.to(targetSocket).emit("peerConnectionRequested", { sender: socket.id });

@@ -61,51 +61,51 @@ export const useVideoStream = () => {
     }
   }, [videoRefMounted, streamOn]);
 
-  // For detecting changes in cameraOn and micOn.
-  useEffect(() => {
-    if (videoStream.current) {
-      if (!cameraOn) {
-        stopTrack({ video: true, audio: false });
-      }
-      if (!micOn) {
-        stopTrack({ video: false, audio: true });
-      }
-      if (cameraOn) {
-        navigator.mediaDevices
-          .getUserMedia({
-            video: cameraOn,
-          })
-          .then((mediaStream) => {
-            const track = mediaStream.getVideoTracks()[0]
-            videoStream.current?.addTrack(track);
-            setTrackChange([
-              {
-                kind: "video",
-                changeType: "added",
-                track
-              }
-            ]);
-          });
-      }
-      if (micOn) {
-        navigator.mediaDevices
-          .getUserMedia({
-            audio: micOn,
-          })
-          .then((mediaStream) => {
-            const track = mediaStream.getAudioTracks()[0];
-            videoStream.current?.addTrack(track);
-            setTrackChange([
-              {
-                kind: "audio",
-                changeType: "added",
-                track
-              }
-            ]);
-          });
-      }
-    }
-  }, [cameraOn, micOn]);
+  // // For detecting changes in cameraOn and micOn.
+  // useEffect(() => {
+  //   if (videoStream.current) {
+  //     if (!cameraOn) {
+  //       stopTrack({ video: true, audio: false });
+  //     }
+  //     if (!micOn) {
+  //       stopTrack({ video: false, audio: true });
+  //     }
+  //     if (cameraOn) {
+  //       navigator.mediaDevices
+  //         .getUserMedia({
+  //           video: cameraOn,
+  //         })
+  //         .then((mediaStream) => {
+  //           const track = mediaStream.getVideoTracks()[0]
+  //           videoStream.current?.addTrack(track);
+  //           setTrackChange([
+  //             {
+  //               kind: "video",
+  //               changeType: "added",
+  //               track
+  //             }
+  //           ]);
+  //         });
+  //     }
+  //     if (micOn) {
+  //       navigator.mediaDevices
+  //         .getUserMedia({
+  //           audio: micOn,
+  //         })
+  //         .then((mediaStream) => {
+  //           const track = mediaStream.getAudioTracks()[0];
+  //           videoStream.current?.addTrack(track);
+  //           setTrackChange([
+  //             {
+  //               kind: "audio",
+  //               changeType: "added",
+  //               track
+  //             }
+  //           ]);
+  //         });
+  //     }
+  //   }
+  // }, [cameraOn, micOn]);
 
   return { videoStream, streamOn, videoRef, stopTrack };
 };

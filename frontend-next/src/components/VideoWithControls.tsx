@@ -11,6 +11,7 @@ interface VideoComponentProps {
   streamOn?: boolean;
   stopTrack: ({ video, audio }: { video: boolean, audio: boolean }) => void;
   selfVideo?: boolean;
+  muted?: boolean;
 }
 
 const VideoWithControls = ({
@@ -20,6 +21,7 @@ const VideoWithControls = ({
   streamOn = true,
   stopTrack,
   selfVideo = false,
+  muted = true,
 }: VideoComponentProps) => {
   const { cameraOn, setCameraOn, micOn, setMicOn } = useStore();
   const pathname = usePathname();
@@ -38,7 +40,7 @@ const VideoWithControls = ({
             ref={videoRef}
             className="localVideo rounded-md shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-shadow duration-300"
             autoPlay
-            muted
+            muted={muted}
           />
 
           <div className="absolute inset-2 flex items-end justify-center opacity-0 group-hover:opacity-100 transition-opacity">

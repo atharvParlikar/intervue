@@ -8,7 +8,7 @@ interface VideoComponentProps {
   width?: string;
   height?: string;
   videoRef: ((node: HTMLVideoElement) => void) | RefObject<HTMLVideoElement | null>;
-  streamOn: boolean;
+  streamOn?: boolean;
   stopTrack: ({ video, audio }: { video: boolean, audio: boolean }) => void;
   selfVideo?: boolean;
 }
@@ -17,7 +17,7 @@ const VideoWithControls = ({
   width = "640px",
   height = "480px",
   videoRef,
-  streamOn,
+  streamOn = true,
   stopTrack,
   selfVideo = false,
 }: VideoComponentProps) => {

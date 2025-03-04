@@ -45,7 +45,7 @@ export const useVideoStream = () => {
             audio: micOn,
           });
           videoStream.current = mediaStream;
-          setStreamOn(true);
+          setStreamOn((_) => true);
         } catch (error) {
           console.error("Error accessing media devices:", error);
         }

@@ -214,6 +214,7 @@ const appRouter = router({
           `[POST /set-socket] Updating host socket ID to ${socketId} for room ${roomId}`,
         );
         const user = await redisClient.hGet(`room:${roomId}`, "host");
+        const peer = await redisClient.hGet(`room:${roomId}`, "participant");
 
         if (!user) {
           throw new TRPCError({ code: "NOT_FOUND" });
@@ -226,6 +227,10 @@ const appRouter = router({
           "host",
           JSON.stringify({ ...userObj, socketId }),
         );
+
+        if (peer) {
+          io.to(socketId).emit("initiate", true);
+        }
 
         return {
           message: "socket id set successfully",
@@ -256,10 +261,10 @@ const appRouter = router({
           JSON.stringify({ ...userObj, socketId }),
         );
 
+        // Signal host to initiate video call.
         if (peerObj.socketId) {
-          io.to(socketId).emit("peer-socket-id", {
-            peerSocketId: peerObj.socketId,
-          });
+          io.to(peerObj.socketId).emit("initiate", true);
+          io.to(socketId).emit("initiate", false);
         }
 
         return {

@@ -6,7 +6,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { VideoCall } from "@/components/VideoCall";
+// import { VideoCall } from "@/components/VideoCall";
+import { VideoCallSimple } from "@/components/VideoCallSimple";
 import { trpc } from "@/lib/trpc";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -65,7 +66,8 @@ export default function Room() {
             ></ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={40}>
-              <VideoCall />
+              {/* <VideoCall /> */}
+              <VideoCallSimple />
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>

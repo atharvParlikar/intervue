@@ -221,10 +221,47 @@ export const socketEvents = (io: Server, socket: Socket) => {
 
   // simple-peer signaling start
 
-  socket.on("signal", ({ targetSocket, signal }) => {
-    console.log(signal);
-    io.to(targetSocket).emit("signal", { signal, sender: socket.id });
-  });
+  // socket.on("signal", ({ targetSocketId, signal }) => {
+  //   console.log(signal.type, " |> ", targetSocketId);
+  //   io.to(targetSocketId).emit("signal", { signal, sender: socket.id });
+  // });
+
+  socket.on("signal", async ({ signal }) => {
+    const senderEmail = await redisClient.hGet("socketInverse", socket.id);
+
+    if (!senderEmail) {
+      console.log("[ERROR] SOCKET ID is either not set or user is not in room");
+      return;
+    };
+
+    const senderInfo = await redisClient.hGet("roomInverse", senderEmail);
+
+    if (!senderInfo) {
+      console.log("[ERROR] sender email is not associated with any room");
+      return;
+    };
+
+    const senderInfoObj = JSON.parse(senderInfo);
+
+
+    if (senderInfoObj.userType === "host") {
+      const peer = await redisClient.hGet(`room:${senderInfoObj.roomId}`, "participant");
+      if (!peer) return;
+      const peerObj = JSON.parse(peer);
+      const participantSocketId = peerObj.socketId;
+      if (!participantSocketId) return;
+      console.log(`[signal] |${signal.type}| ${socket.id} |> ${participantSocketId}`)
+      io.to(participantSocketId).emit("signal", { signal });
+    } else if (senderInfoObj.userType === "participant") {
+      const peer = await redisClient.hGet(`room:${senderInfoObj.roomId}`, "host");
+      if (!peer) return;
+      const peerObj = JSON.parse(peer);
+      const hostSocketId = peerObj.socketId;
+      if (!hostSocketId) return;
+      console.log(`[signal] |${signal.type}| ${socket.id} |> ${hostSocketId}`)
+      io.to(hostSocketId).emit("signal", { signal });
+    }
+  })
 
   socket.on("requestPeerConnection", ({ targetSocket }) => {
     io.to(targetSocket).emit("peerConnectionRequested", { sender: socket.id });

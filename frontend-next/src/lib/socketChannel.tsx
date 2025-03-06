@@ -42,10 +42,6 @@ export const initializeSocket = (URL: string) => {
     }
   });
 
-  socket.on("peer-socket-id", ({ peerSocketId }) => {
-    useStore.getState().setPeerSocketId(peerSocketId);
-  });
-
   socket.on("disconnect", () => {
     console.log("Socket connection closed!");
   });

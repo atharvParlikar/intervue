@@ -9,9 +9,10 @@ interface VideoComponentProps {
   height?: string;
   videoRef: ((node: HTMLVideoElement) => void) | RefObject<HTMLVideoElement | null>;
   streamOn?: boolean;
-  stopTrack: ({ video, audio }: { video: boolean, audio: boolean }) => void;
+  stopTrack: ({ video, audio }: { video?: boolean, audio?: boolean }) => void;
   selfVideo?: boolean;
   muted?: boolean;
+  videoLocal?: boolean;
 }
 
 const VideoWithControls = ({
@@ -22,13 +23,30 @@ const VideoWithControls = ({
   stopTrack,
   selfVideo = false,
   muted = true,
+  videoLocal = true
 }: VideoComponentProps) => {
   const { cameraOn, setCameraOn, micOn, setMicOn } = useStore();
-  const pathname = usePathname();
+
+  const handleVideoButton = () => {
+    if (cameraOn) {
+      stopTrack({ video: true });
+      return;
+    }
+    setCameraOn(true);
+  }
+
+  const handleAudioButton = () => {
+    if (micOn) {
+      stopTrack({ audio: true });
+      return;
+    }
+    setMicOn(true);
+  }
 
   useEffect(() => {
-    return () => stopTrack({ video: true, audio: true });
-  }, [pathname]);
+    if (videoLocal) {
+    }
+  }, [cameraOn, micOn]);
 
   return (
     <>
@@ -46,14 +64,14 @@ const VideoWithControls = ({
           <div className="absolute inset-2 flex items-end justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="flex gap-6">
               <Button
-                onClick={() => setCameraOn(!cameraOn)}
+                onClick={handleVideoButton}
                 className={`rounded-full`}
               >
                 {/* This is an icon, not a media player */}
                 {cameraOn ? "Camera on" : "Camera off"}
               </Button>
               <Button
-                onClick={() => setMicOn(!micOn)}
+                onClick={handleAudioButton}
                 className={`rounded-full`}
               >
                 {micOn ? "Mic on" : "Mic off"}

@@ -2,26 +2,33 @@ import { Server, Socket } from "socket.io";
 import redisClient from "./redis";
 import { verifyToken } from "@clerk/backend";
 import { Room } from "./schemas";
+import { io } from "./index-trpc";
 
 async function handleDisconnect(socketId: string) {
   console.log(`🔥 ${socketId} disconnected`);
   const email = await redisClient.hGet("socketInverse", socketId);
   if (!email) return;
-  const { roomId, userType } = JSON.parse(
-    (await redisClient.hGet("roomInverse", email))!,
-  );
 
-  const room = await getRoomFromEmail(email);
+  const roomInfo = await getRoomInfoFromEmail(email);
+  if (!roomInfo) return;
+
+  const { roomId, userType } = roomInfo;
+  const room = await getRoom(roomId);
 
   if (!room) return;
 
-  const key = userType === "host" ? "host" : "participant";
   console.log(room);
-  const updatedData = { ...JSON.parse(room[key]), socketId: "" };
+  const userObj = room[userType];
+  const updatedData = { ...userObj, socketId: "" };
 
-  await redisClient.hSet(`room:${roomId}`, key, JSON.stringify(updatedData));
+  await redisClient.hSet(`room:${roomId}`, userType, JSON.stringify(updatedData));
 
   await redisClient.hDel("socketInverse", socketId);
+
+  const peerType = userType === "host" ? "participant" : "host";
+  const peerSocketId = room[peerType]?.socketId;
+  if (peerSocketId)
+    io.to(peerSocketId).emit("peer-disconnected");
 }
 
 export const verifyJWT = async (
@@ -51,27 +58,26 @@ export const verifyJWT = async (
   }
 };
 
-export const getRoomId = async (email: string): Promise<string | null> => {
-  const inverseRooms = await redisClient.hGetAll("roomInverse");
-  const inverseRoomUnparsed = inverseRooms[email];
-  if (!inverseRoomUnparsed) return null;
-  const inverseRoom = JSON.parse(inverseRoomUnparsed);
-  if (!inverseRoom) {
-    console.error(
-      `[connectionReady] No inverse room found for email: ${email}`,
-    );
+export const getRoomInfoFromEmail = async (email: string): Promise<{ roomId: string, userType: "host" | "participant" } | null> => {
+  const roomString = await redisClient.hGet("roomInverse", email);
+  if (!roomString) return null;
+  try {
+    return JSON.parse(roomString);
+  } catch (_) {
     return null;
   }
+};
 
-  const roomId = inverseRoom.roomId;
-  return roomId;
+export const getRoomId = async (email: string): Promise<string | null> => {
+  const roomInfo = await getRoomInfoFromEmail(email);
+  return roomInfo ? roomInfo.roomId : null;
 };
 
 export const getRoom = async (roomId: string): Promise<Room | null> => {
   const roomImpure = await redisClient.hGetAll(`room:${roomId}`);
 
   if (!roomImpure.host) {
-    console.error(`[connectionReady] No room found for roomId: ${roomId}`);
+    console.error(`[getRoom] No room found for roomId: ${roomId}`);
     return null;
   }
 
@@ -92,17 +98,14 @@ export const getRoom = async (roomId: string): Promise<Room | null> => {
 };
 
 export const getRoomFromEmail = async (email: string) => {
-  const roomString = await redisClient.hGet("roomInverse", email);
-  if (!roomString) return null;
-  try {
-    const { roomId } = JSON.parse(roomString);
-    console.log(roomId);
-    const room = await redisClient.hGetAll(`room:${roomId}`);
-    console.log("room: ", room);
-    return room;
-  } catch (_) {
-    return null;
-  }
+  const roomInfo = await getRoomInfoFromEmail(email);
+  if (!roomInfo) return null;
+
+  const { roomId } = roomInfo;
+  console.log(roomId);
+  const room = await redisClient.hGetAll(`room:${roomId}`);
+  console.log("room: ", room);
+  return room;
 };
 
 async function getPeerSocketId(socketId: string) {
@@ -112,23 +115,60 @@ async function getPeerSocketId(socketId: string) {
     return null;
   }
 
-  const senderInfo = await redisClient.hGet("roomInverse", senderEmail);
-  if (!senderInfo) {
+  const roomInfo = await getRoomInfoFromEmail(senderEmail);
+  if (!roomInfo) {
     console.log("[ERROR] sender email is not associated with any room");
     return null;
   }
 
-  const senderInfoObj = JSON.parse(senderInfo);
-  const peerType = senderInfoObj.userType === "host" ? "participant" : "host";
-  const peer = await redisClient.hGet(`room:${senderInfoObj.roomId}`, peerType);
+  const peerType = roomInfo.userType === "host" ? "participant" : "host";
+  const room = await getRoom(roomInfo.roomId);
 
-  if (!peer) {
-    console.log(`[ERROR] No ${peerType} found in room ${senderInfoObj.roomId}`);
+  if (!room) {
+    console.log(`[ERROR] No room found for roomId ${roomInfo.roomId}`);
     return null;
   }
 
-  const peerObj = JSON.parse(peer);
-  return peerObj.socketId || null;
+  const peer = peerType === "host" ? room.host : room.participant;
+
+  if (!peer) {
+    console.log(`[ERROR] No ${peerType} found in room ${roomInfo.roomId}`);
+    return null;
+  }
+
+  return peer.socketId || null;
+}
+
+async function updateRoomParticipant(roomId: string, participantData: { email: string, socketId: string, firstName: string }) {
+  await redisClient.hSet(
+    `room:${roomId}`,
+    "participant",
+    JSON.stringify(participantData)
+  );
+
+  await redisClient.hSet(
+    "roomInverse",
+    participantData.email,
+    JSON.stringify({
+      roomId,
+      userType: "participant",
+    })
+  );
+
+  if (participantData.socketId) {
+    await redisClient.hSet("socketInverse", participantData.socketId, participantData.email);
+  }
+}
+
+async function removeRoom(roomId: string) {
+  const room = await getRoom(roomId);
+  if (!room) return;
+
+  await redisClient.hDel("roomInverse", room.host.email);
+  if (room.participant) {
+    await redisClient.hDel("roomInverse", room.participant.email);
+  }
+  await redisClient.del(`room:${roomId}`);
 }
 
 export const socketEvents = (io: Server, socket: Socket) => {
@@ -139,7 +179,7 @@ export const socketEvents = (io: Server, socket: Socket) => {
   socket.on("acceptJoin", async (userObject: string) => {
     try {
       const { roomId, socketId, email, firstName } = JSON.parse(userObject);
-      // await updateRoomParticipant(roomId, { email, socketId, firstName });
+      await updateRoomParticipant(roomId, { email, socketId, firstName });
       io.to(socketId).emit("joinSuccess");
     } catch (error) {
       console.error("[acceptJoin] Error:", error);
@@ -158,8 +198,10 @@ export const socketEvents = (io: Server, socket: Socket) => {
       });
       return;
     }
+
     const { email, firstName } = packet;
     const room = await getRoom(roomId);
+
     if (!room) {
       socket.emit("joinRoomResponse", {
         success: false,
@@ -167,6 +209,7 @@ export const socketEvents = (io: Server, socket: Socket) => {
       });
       return;
     }
+
     if (room.private) {
       const hostSocketId = room.host.socketId!;
       io.to(hostSocketId).emit("join-consent", {
@@ -179,23 +222,11 @@ export const socketEvents = (io: Server, socket: Socket) => {
     }
 
     // At this point room is not private, proceed with adding user to the database.
-    await redisClient.hSet(
-      `room:${roomId}`,
-      "participant",
-      JSON.stringify({
-        email,
-        firstName,
-      }),
-    );
-
-    await redisClient.hSet(
-      "roomInverse",
+    await updateRoomParticipant(roomId, {
       email,
-      JSON.stringify({
-        roomId,
-        userType: "participant",
-      }),
-    );
+      firstName,
+      socketId: socket.id
+    });
 
     socket.emit("join-consent-response", {
       allowed: true,
@@ -209,35 +240,28 @@ export const socketEvents = (io: Server, socket: Socket) => {
       console.log("got join-consent-response");
       // TODO: do not just return, send "senderSocket" not allowed.
       if (!allowed) return;
-      const roomHost = await redisClient.hGet("socketInverse", socket.id);
-      if (!roomHost) return;
-      const roomString = await redisClient.hGet("roomInverse", roomHost);
-      if (!roomString) return;
-      const room = JSON.parse(roomString);
+
+      const senderEmail = await redisClient.hGet("socketInverse", socket.id);
+      if (!senderEmail) return;
+
+      const roomInfo = await getRoomInfoFromEmail(senderEmail);
+      if (!roomInfo) return;
+
       // Make sure the person giving join-consent for room is present in that room is a host.
-      if (room.roomId === roomId && room.userType === "host") {
-        await redisClient.hSet(
-          `room:${roomId}`,
-          "participant",
-          JSON.stringify({
-            email,
-            firstName,
-          }),
-        );
-        await redisClient.hSet(
-          "roomInverse",
+      if (roomInfo.roomId === roomId && roomInfo.userType === "host") {
+        await updateRoomParticipant(roomId, {
           email,
-          JSON.stringify({
-            roomId,
-            userType: "participant",
-          }),
-        );
+          firstName,
+          socketId: senderSocket
+        });
+
         io.to(senderSocket).emit("join-consent-response", {
           allowed: true,
           roomId,
         });
         return;
       }
+
       io.to(senderSocket).emit("join-consent-response", {
         allowed: true,
         roomId,
@@ -275,12 +299,19 @@ export const socketEvents = (io: Server, socket: Socket) => {
     });
     const email = jwt.email as string;
     console.log(`[kill] Email: ${email}`);
+
     const roomId = await getRoomId(email);
-    const room = await getRoom(roomId!);
+    if (!roomId) {
+      console.error("[kill] Room not found for email");
+      return;
+    }
+
+    const room = await getRoom(roomId);
     if (!room) {
       console.error("[kill] Room not found");
       return;
     }
+
     const hostId = room.host.socketId!;
     const participantId = room.participant?.socketId!;
 
@@ -289,11 +320,7 @@ export const socketEvents = (io: Server, socket: Socket) => {
     io.to(hostId).emit("kill");
     io.to(participantId).emit("kill");
 
-    redisClient.hDel(`roomInverse`, room.host.email);
-    if (room.participant) {
-      redisClient.hDel(`roomInverse`, room.participant.email);
-    }
-    redisClient.DEL(`room:${roomId}`);
+    await removeRoom(roomId);
   });
 
   socket.on("disconnect", async () => {

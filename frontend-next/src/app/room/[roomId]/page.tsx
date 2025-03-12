@@ -1,26 +1,27 @@
 "use client";
 
 import Editor from "@/components/Editor";
+import { Output } from "@/components/Output";
+import { TopBar } from "@/components/TopBar";
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-// import { VideoCall } from "@/components/VideoCall";
-import { VideoCallSimple } from "@/components/VideoCallSimple";
+import { VideoCall } from "@/components/VideoCall";
 import { trpc } from "@/lib/trpc";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { toast } from "react-hot-toast";
 
 export default function Room() {
-  const params = useParams<{ roomId: string }>();
+  const { roomId } = useParams<{ roomId: string }>();
   const router = useRouter();
   const checkRoomLiveQuery = trpc.checkRoomLive.useQuery({
-    roomId: params.roomId,
+    roomId: roomId,
   });
   const checkUserExistsQuery = trpc.checkUserExists.useQuery({
-    roomId: params.roomId,
+    roomId: roomId,
   });
 
   // to check if room exists
@@ -52,26 +53,29 @@ export default function Room() {
   }
 
   return (
-    <div className="h-full w-full">
-      <ResizablePanelGroup direction="horizontal">
-        <ResizablePanel className="bg-[#2C2F3F]" defaultSize={60}>
-          <Editor roomId={params.roomId} />
-        </ResizablePanel>
-        <ResizableHandle withHandle className="w-fit" />
-        <ResizablePanel defaultSize={40}>
-          <ResizablePanelGroup direction="vertical">
-            <ResizablePanel
-              className="bg-yellow-400"
-              defaultSize={60}
-            ></ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={40}>
-              {/* <VideoCall /> */}
-              <VideoCallSimple />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+    <div className="h-full w-full flex flex-col">
+      <TopBar />
+      <div className="flex-1">
+        <ResizablePanelGroup direction="horizontal">
+          <ResizablePanel className="bg-[#2C2F3F]" defaultSize={60}>
+            <Editor roomId={roomId} />
+          </ResizablePanel>
+          <ResizableHandle withHandle className="w-fit" />
+          <ResizablePanel defaultSize={40}>
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel
+                defaultSize={60}
+              >
+                <Output roomId={roomId} text="something fucked man!!!" type="error" />
+              </ResizablePanel>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={40}>
+                <VideoCall />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
     </div>
   );
 }

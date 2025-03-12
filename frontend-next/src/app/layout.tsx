@@ -11,6 +11,7 @@ import {
 import { TrpcProvider } from "@/lib/trpc-provider";
 import { Toaster } from "react-hot-toast";
 import { useEffect } from "react";
+import { dark } from '@clerk/themes';
 
 export default function RootLayout({
   children,
@@ -21,7 +22,11 @@ export default function RootLayout({
   useEffect(() => () => localStorage.removeItem("token"), []);
 
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      appearance={{
+        baseTheme: dark
+      }}
+    >
       <html lang="en">
         <body className="dark">
           <SignedOut>

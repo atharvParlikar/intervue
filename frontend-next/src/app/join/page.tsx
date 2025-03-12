@@ -3,7 +3,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import VideoWithControls from "@/components/VideoWithControls";
+import VideoWithControlsLocal from "@/components/VideoWithControlsLocal";
 import { useStore } from "@/contexts/store";
 import { useVideoStream } from "@/hooks/useVideoStream";
 import { getSocket } from "@/lib/socketChannel";
@@ -29,7 +29,7 @@ export default function Page() {
           笑って、あなたはカメラに映っています
         </h1>
 
-        <VideoWithControls videoRef={videoRef} streamOn={streamOn} stopTrack={stopTrack} selfVideo />
+        <VideoWithControlsLocal videoRef={videoRef} streamOn={streamOn} stopTrack={stopTrack} selfVideo />
 
         <div className="flex gap-4 justify-center items-center h-14">
           <Input

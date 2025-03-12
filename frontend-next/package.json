@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.11.3",
+    "@clerk/themes": "^2.2.20",
     "@codemirror/commands": "^6.8.0",
     "@codemirror/lang-python": "^6.1.7",
     "@codemirror/state": "^6.5.2",

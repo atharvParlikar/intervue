@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { roomId } = useParams<{ roomId: string }>();
+
   useAuthToken();
   useSocketConnection();
   useSocketMutation({
@@ -14,5 +15,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   });
 
   // TODO: add a topbar or sidebar for account related things
-  return <div className="h-screen w-screen">{children}</div>;
+  return (
+    <div className="h-screen w-screen flex flex-col">
+      {children}
+    </div>
+  );
 }
+

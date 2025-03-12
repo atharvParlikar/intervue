@@ -8,14 +8,13 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import VideoWithControls from "@/components/VideoWithControls";
+import VideoWithControlsLocal from "@/components/VideoWithControlsLocal";
 import { useVideoStream } from "@/hooks/useVideoStream";
 import { useStore } from "@/contexts/store";
 
 export default function Page() {
-  const { videoRef, videoStream, streamOn, stopTrack } = useVideoStream();
+  const { videoRef, streamOn, stopTrack } = useVideoStream();
   const [isPrivate, setIsPrivate] = useState<boolean>(true);
-  const { cameraOn, micOn } = useStore();
 
   const router = useRouter();
 
@@ -43,24 +42,13 @@ export default function Page() {
     createRoomMutation.mutate({ roomId, isPrivate });
   };
 
-  useEffect(() => {
-    if (cameraOn) {
-      navigator.mediaDevices.getUserMedia({
-        video: true
-      }).then(stream => {
-        const videoTrack = stream.getVideoTracks()[0];
-        videoStream.current?.addTrack(videoTrack);
-      });
-    }
-  }, [cameraOn, micOn]);
-
   return (
     <div className="flex justify-center h-screen items-center">
       <div className="flex flex-col gap-4 rounded-md">
         <h1 className="text-2xl mx-auto">
           笑って、あなたはカメラに映っています
         </h1>
-        <VideoWithControls videoRef={videoRef} streamOn={streamOn} videoLocal={true} stopTrack={stopTrack} selfVideo />
+        <VideoWithControlsLocal videoRef={videoRef} streamOn={streamOn} stopTrack={stopTrack} />
         <div className="flex justify-center mb-4">
           <Button onClick={createRoom}>Create</Button>
         </div>

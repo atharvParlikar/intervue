@@ -1,8 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { usePathname } from "next/navigation";
-import { RefObject, useEffect } from "react";
+import { RefObject } from "react";
 import { useStore } from "@/contexts/store";
 import { Button } from "./ui/button";
+import { CameraOff, MicOff } from "lucide-react";
 
 interface VideoComponentProps {
   width?: string;
@@ -12,10 +12,9 @@ interface VideoComponentProps {
   stopTrack: ({ video, audio }: { video?: boolean, audio?: boolean }) => void;
   selfVideo?: boolean;
   muted?: boolean;
-  videoLocal?: boolean;
 }
 
-const VideoWithControls = ({
+const VideoWithControlsLocal = ({
   width = "640px",
   height = "480px",
   videoRef,
@@ -23,7 +22,6 @@ const VideoWithControls = ({
   stopTrack,
   selfVideo = false,
   muted = true,
-  videoLocal = true
 }: VideoComponentProps) => {
   const { cameraOn, setCameraOn, micOn, setMicOn } = useStore();
 
@@ -43,23 +41,28 @@ const VideoWithControls = ({
     setMicOn(true);
   }
 
-  useEffect(() => {
-    if (videoLocal) {
-    }
-  }, [cameraOn, micOn]);
-
   return (
     <>
       {streamOn ? (
         <div
           className="h-full w-full rounded-md relative group"
         >
-          <video
-            ref={videoRef}
-            className="localVideo rounded-md shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-shadow duration-300"
-            autoPlay
-            muted={muted}
-          />
+          {
+            cameraOn ?
+              <video
+                ref={videoRef}
+                className="localVideo rounded-md shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.2)] transition-shadow duration-300"
+                autoPlay
+                muted={muted}
+              /> : (
+                <div style={{ width, height }} className="flex gap-6 justify-center items-center">
+                  <CameraOff />
+                  {
+                    micOn ? <></> : <MicOff />
+                  }
+                </div>
+              )
+          }
 
           <div className="absolute inset-2 flex items-end justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <div className="flex gap-6">
@@ -82,7 +85,6 @@ const VideoWithControls = ({
       ) : (
         <div>
           {
-            selfVideo &&
             <Skeleton className="rounded-md" style={{ width, height }} />
           }
         </div>
@@ -91,4 +93,4 @@ const VideoWithControls = ({
   );
 };
 
-export default VideoWithControls;
+export default VideoWithControlsLocal;

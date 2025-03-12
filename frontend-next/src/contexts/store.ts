@@ -24,6 +24,12 @@ type Store = {
   setCameraOn: (cameraOn: boolean) => void;
   micOn: boolean;
   setMicOn: (micOn: boolean) => void;
+  remoteCameraOn: boolean;
+  setRemoteCameraOn: (remoteCameraOn: boolean) => void;
+  remoteMicOn: boolean;
+  setRemoteMicOn: (remoteMicOn: boolean) => void;
+  peerConnected: boolean;
+  setPeerConnected: (peerConnected: boolean) => void;
   trackChange: TrackChangeT[];
   setTrackChange: (trackChange: TrackChangeT[]) => void;
 };
@@ -38,10 +44,22 @@ export const useStore = create<Store>((set) => ({
   setWsReady: (ready) => set({ wsReady: ready }),
   socketId: null,
   setSocketId: (socketId) => set({ socketId }),
-  cameraOn: true,
-  setCameraOn: (cameraOn) => set({ cameraOn }),
-  micOn: true,
-  setMicOn: (micOn) => set({ micOn }),
+  cameraOn: localStorage.getItem("cameraOn") === "false" ? false : true,
+  setCameraOn: (cameraOn) => {
+    localStorage.setItem("cameraOn", cameraOn ? "true" : "false");
+    set({ cameraOn });
+  },
+  micOn: localStorage.getItem("micOn") === "false" ? false : true,
+  setMicOn: (micOn) => {
+    localStorage.setItem("micOn", micOn ? "true" : "false");
+    set({ micOn });
+  },
+  remoteCameraOn: false,
+  setRemoteCameraOn: (remoteCameraOn) => set({ remoteCameraOn }),
+  remoteMicOn: false,
+  setRemoteMicOn: (remoteMicOn) => set({ remoteMicOn }),
+  peerConnected: false,
+  setPeerConnected: (peerConnected) => set({ peerConnected }),
   trackChange: [],
   setTrackChange: (trackChange) => set({ trackChange })
 }));

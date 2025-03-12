@@ -1,7 +1,9 @@
-import { TrackChangeT, useStore } from "@/contexts/store";
+import { useStore } from "@/contexts/store";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export const useVideoStream = () => {
+type useVideoStreamArgs = boolean;
+
+export const useVideoStream = (local: useVideoStreamArgs = true) => {
   const videoStream = useRef<MediaStream | null>(null);
   const [streamOn, setStreamOn] = useState(false);
   const videoNode = useRef<HTMLVideoElement | null>(null);
@@ -27,7 +29,8 @@ export const useVideoStream = () => {
     const setupStreams = async () => {
       if (!videoStream.current) {
         try {
-          console.log("video: ", cameraOn, " ;; audio: ", micOn);
+          if (!(cameraOn || micOn)) return;
+
           const mediaStream = await navigator.mediaDevices.getUserMedia({
             video: cameraOn,
             audio: micOn,
@@ -43,49 +46,36 @@ export const useVideoStream = () => {
     setupStreams();
   }, []);
 
-  // For detecting changes in cameraOn and micOn.
+  // For detecting changes in cameraOn and micOn in local stream.
   useEffect(() => {
+    if (!local) return;
     if (!cameraOn) {
       videoStream.current?.getTracks().filter(track => track.kind === "video").forEach(track => {
-        track.stop()
+        track.stop();
         videoStream.current?.removeTrack(track);
-      })
+      });
+    } else if (videoStream.current) {
+      navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+        const videoTrack = stream.getTracks().find(track => track.kind === "video")!;
+        videoStream.current?.addTrack(videoTrack);
+      });
     }
+  }, [cameraOn]);
+
+  useEffect(() => {
+    if (!local) return;
     if (!micOn) {
       videoStream.current?.getTracks().filter(track => track.kind === "audio").forEach(track => {
-        track.stop()
+        track.stop();
         videoStream.current?.removeTrack(track);
-      })
+      });
+    } else if (videoStream.current) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        const audioTrack = stream.getTracks().find(track => track.kind === "audio")!;
+        videoStream.current?.addTrack(audioTrack);
+      });
     }
-    if (videoStream.current) {
-      if (cameraOn) {
-        navigator.mediaDevices
-          .getUserMedia({
-            video: cameraOn,
-          })
-          .then((mediaStream) => {
-            const track = mediaStream.getVideoTracks()[0]
-            videoStream.current?.addTrack(track);
-            if (!videoNode.current) return;
-            videoNode.current.srcObject = videoNode.current?.srcObject;
-          });
-      }
-      if (micOn) {
-        navigator.mediaDevices
-          .getUserMedia({
-            audio: micOn,
-          })
-          .then((mediaStream) => {
-            const track = mediaStream.getAudioTracks()[0];
-            videoStream.current?.addTrack(track);
-            if (!videoNode.current) return;
-            videoNode.current.srcObject = videoNode.current?.srcObject;
-          });
-      }
-    }
-  }, [cameraOn, micOn]);
+  }, [micOn]);
 
   return { videoStream, streamOn, videoRef, stopTrack };
 };
-
-

@@ -1,10 +1,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 "use client";
 
-import { useSocketConnection } from "@/hooks/useSocketConnection";
+import { useAuthToken } from "@/hooks/useAuthToken";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  useSocketConnection();
+  useAuthToken();
 
   return <div className="h-screen w-screen">{children}</div>;
 }

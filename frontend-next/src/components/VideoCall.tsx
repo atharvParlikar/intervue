@@ -14,11 +14,7 @@ export function VideoCall() {
   const [initiator, setInitiator] = useState<boolean | null>(null);
   const [signal, setSignal] = useState<SimplePeer.SignalData | null>(null);
   const socket = getSocket()!;
-  const { setPeerConnected, peerConnected, cameraOn, micOn, remoteCameraOn, remoteMicOn, setRemoteCameraOn, setRemoteMicOn } = useStore();
-  const localMediaState = useRef({
-    video: cameraOn,
-    micOn: micOn
-  });
+  const { setPeerConnected, cameraOn, micOn, setRemoteCameraOn, setRemoteMicOn } = useStore();
 
   const createPeer = (stream: MediaStream, initiator: boolean) => {
     const peer = new SimplePeer({
@@ -128,47 +124,6 @@ export function VideoCall() {
     console.log("peer created successfully");
   }, [streamOn, initiator]);
 
-  // useEffect(() => {
-  //   console.log("useEffect triggered");
-  //   if (!(videoStream.current && peerRef.current)) return;
-  //
-  //   if (cameraOn !== localMediaState.current.video) {
-  //     const videoTracks = videoStream.current.getTracks().filter(t => t.kind === "video");
-  //
-  //     if (videoTracks.length > 0) {
-  //       videoTracks.forEach(track => {
-  //         if (!cameraOn) {
-  //           track.enabled = false;
-  //           track.stop();
-  //         } else {
-  //           console.log("got to cameraOn := true");
-  //           navigator.mediaDevices.getUserMedia({ video: true })
-  //             .then((newStream) => {
-  //               const oldVideoTrack = videoStream.current?.getTracks().find(t => t.kind === "video")!;
-  //               const newVideoTrack = newStream.getTracks().find(t => t.kind === "video");
-  //               console.log("before newVideodTrack: ");
-  //               console.log(newVideoTrack);
-  //               if (!newVideoTrack) return;
-  //
-  //               console.log("after newVideodTrack");
-  //
-  //               peerRef.current?.replaceTrack(oldVideoTrack, newVideoTrack, videoStream.current!);
-  //               console.log("got till here");
-  //               socket.emit("refresh-video");
-  //
-  //               localMediaState.current.video = true;
-  //             })
-  //             .catch(err => {
-  //               console.error("Error accessing camera:", err);
-  //             });
-  //         }
-  //       });
-  //
-  //       localMediaState.current.video = cameraOn;
-  //     }
-  //   }
-  // }, [cameraOn]);
-
   useEffect(() => {
     if (!videoStream.current) return;
 
@@ -176,17 +131,22 @@ export function VideoCall() {
     if (!cameraOn) {
       const track = videoStream.current.getTracks().find(track => track.kind === "video");
       if (!track || !peerRef.current) return;
-      peerRef.current.removeTrack(track, videoStream.current);
+      track.enabled = false;
       track.stop();
+      socket.emit("refresh-video");
+      socket.emit("remoteCameraOn", false);
     } else {
       if (!peerRef.current) return;
       const peer = peerRef.current;
       navigator.mediaDevices.getUserMedia({
         video: true
       }).then(stream => {
-        const videoTrack = stream.getTracks().find(track => track.kind === "video");
-        if (!videoTrack) return;
-        peer.addTrack(videoTrack, videoStream.current!);
+        const oldVideoTrack = videoStream.current?.getTracks().find(track => track.kind === "video");
+        const newVideoTrack = stream.getTracks().find(track => track.kind === "video");
+        if (!newVideoTrack || !oldVideoTrack) return;
+        peer.replaceTrack(oldVideoTrack, newVideoTrack, videoStream.current!);
+        socket.emit("remoteCameraOn", true);
+        socket.emit("refresh-video");
       });
     }
   }, [cameraOn]);

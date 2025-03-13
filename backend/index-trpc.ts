@@ -55,6 +55,68 @@ const checkUserExists = async ({
   return user.roomId === roomId;
 };
 
+async function executeInDocker(code: string, timeoutMs: number): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    let stdout = '';
+    let stderr = '';
+    let killed = false;
+
+    const pythonProcess = spawn("docker", [
+      "run",
+      "--rm",                 // Remove container after execution
+      "--memory=100m",        // Limit memory usage
+      "--memory-swap=100m",   // Prevent swapping
+      "--cpus=0.5",           // Limit CPU usage
+      "--pids-limit=50",      // Limit number of processes
+      "--network=none",       // No network access
+      "--security-opt=no-new-privileges", // Prevent privilege escalation
+      "python:3.9-slim",      // Use slim image
+      "python",
+      "-c",
+      code,
+    ]);
+
+    // Set timeout
+    const timeoutId = setTimeout(() => {
+      killed = true;
+      pythonProcess.kill();
+      reject(new Error("Execution timed out"));
+    }, timeoutMs);
+
+    // Capture stdout
+    pythonProcess.stdout.on("data", (data) => {
+      stdout += data.toString();
+    });
+
+    // Capture stderr
+    pythonProcess.stderr.on("data", (data) => {
+      stderr += data.toString();
+    });
+
+    // Handle completion
+    pythonProcess.on("close", (code) => {
+      clearTimeout(timeoutId);
+
+      console.log(`[run-code] Python process exited with code ${code}`);
+
+      if (killed) return; // Already handled by timeout
+
+      if (code !== 0) {
+        console.error(`[run-code] Process failed with code ${code}`);
+        console.error('[run-code] stderr:', stderr);
+      }
+
+      resolve({ stdout, stderr });
+    });
+
+    // Handle execution errors
+    pythonProcess.on("error", (err) => {
+      clearTimeout(timeoutId);
+      reject(err);
+    });
+  });
+}
+
 // Define procedures
 const appRouter = router({
   createRoom: privateProcedure
@@ -374,69 +436,41 @@ const appRouter = router({
         code: z.string(),
       }),
     )
+    .output(
+      z.object({
+        stdout: z.string(),
+        stderr: z.string(),
+      })
+    )
     .mutation(async ({ input, ctx }) => {
       const { code } = input;
       const { email } = ctx;
 
       const roomId = await getRoomId(email);
-      if (!roomId) return;
-
-      let output = "";
-
-      const pythonProcess = spawn("docker", [
-        "run",
-        "python",
-        "python",
-        "-c",
-        code,
-      ]);
-
-      pythonProcess.stdout.on("data", (data) => {
-        output += data.toString();
+      if (!roomId) throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Your email is not associated with any emaill"
+      });
+      const room = await getRoom(roomId);
+      if (!room) throw new TRPCError({
+        code: "NOT_FOUND",
+        message: "Room you are trying to run this code in does not exist"
       });
 
-      pythonProcess.on("close", async (code) => {
-        console.log(`[run-code] Python process exited with code ${code}`);
-        console.log("[run-code] Output:", output);
+      const TIMEOUT_MS = 5000;
 
-        const roomId = await getRoomId(email);
-        if (!roomId) throw new TRPCError({ code: "NOT_FOUND" });
-
-        const room = await getRoom(roomId);
-
-        if (!room) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Room not found",
-          });
-        }
-
-        const host = room.host.socketId;
-
-        if (!host) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "host not in room",
-          });
-        }
-
-        if (!room.participant) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "participant not in room",
-          });
-        }
-
-        const participant = room.participant.socketId;
-        console.log(
-          `[run-code] Emitting output to host ${host} and participant ${participant}`,
-        );
-        io.to(host).emit("output", JSON.stringify({ code, output }));
-        io.to(participant!).emit("output", JSON.stringify({ code, output }));
+      try {
+        const { stdout, stderr } = await executeInDocker(code, TIMEOUT_MS);
         return {
-          result: "yo done",
-        };
-      });
+          stdout,
+          stderr
+        }
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Something went wrong while running the code"
+        })
+      }
     }),
 
   judge: privateProcedure

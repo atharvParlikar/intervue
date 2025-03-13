@@ -292,6 +292,20 @@ export const socketEvents = (io: Server, socket: Socket) => {
 
   // simple-peer signaling end
 
+  socket.on("remoteCameraOn", async (cameraOn) => {
+    const peerSocketId = await getPeerSocketId(socket.id);
+    if (!peerSocketId) return;
+
+    io.to(peerSocketId).emit("remoteCameraOn", cameraOn);
+  });
+
+  socket.on("remoteMicOn", async (micOn) => {
+    const peerSocketId = await getPeerSocketId(socket.id);
+    if (!peerSocketId) return;
+
+    io.to(peerSocketId).emit("remoteMicOn", micOn);
+  });
+
   socket.on("kill", async (token: string) => {
     console.log(`[kill] Received kill request from ${socket.id}`);
     const jwt = await verifyToken(token, {

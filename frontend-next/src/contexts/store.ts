@@ -12,8 +12,8 @@ export type TrackChangeT = {
 }
 
 type Store = {
-  code: string;
-  updateCode: (newCode: string) => void;
+  editorState: string;
+  setEditorState: (newCode: string) => void;
   videoSettings: VideoSettingsT;
   updateVideoSettings: (newVideoSettings: VideoSettingsT) => void;
   wsReady: boolean;
@@ -32,11 +32,13 @@ type Store = {
   setPeerConnected: (peerConnected: boolean) => void;
   trackChange: TrackChangeT[];
   setTrackChange: (trackChange: TrackChangeT[]) => void;
+  outputBuffer: string[];
+  addOutput: (output: string) => void;
 };
 
 export const useStore = create<Store>((set) => ({
-  code: "",
-  updateCode: (newCode) => set({ code: newCode }),
+  editorState: "",
+  setEditorState: (newCode) => set({ editorState: newCode }),
   videoSettings: { video: true, mic: true },
   updateVideoSettings: (newVideoSettings) =>
     set({ videoSettings: newVideoSettings }),
@@ -61,5 +63,7 @@ export const useStore = create<Store>((set) => ({
   peerConnected: false,
   setPeerConnected: (peerConnected) => set({ peerConnected }),
   trackChange: [],
-  setTrackChange: (trackChange) => set({ trackChange })
+  setTrackChange: (trackChange) => set({ trackChange }),
+  outputBuffer: [''],
+  addOutput: (output) => set((state) => ({ outputBuffer: state.outputBuffer[0] !== '' ? [...state.outputBuffer, output] : [output] }))
 }));

@@ -72,6 +72,7 @@ export function VideoCall() {
     peer.signal(signal);
   }, [signal, streamOn]);
 
+  // setup socket events
   useEffect(() => {
     socket.on("initiate", (i) => {
       console.log("to initiate: ", i);
@@ -127,7 +128,6 @@ export function VideoCall() {
   useEffect(() => {
     if (!videoStream.current) return;
 
-    // camera is turned off
     if (!cameraOn) {
       const track = videoStream.current.getTracks().find(track => track.kind === "video");
       if (!track || !peerRef.current) return;
@@ -150,6 +150,31 @@ export function VideoCall() {
       });
     }
   }, [cameraOn]);
+
+  useEffect(() => {
+    if (!videoStream.current) return;
+
+    if (!micOn) {
+      const track = videoStream.current.getTracks().find(track => track.kind === "video");
+      if (!track) return;
+      track.enabled = false;
+      track.stop();
+      socket.emit("remoteMicOn", false);
+    } else {
+      if (!peerRef.current) return;
+
+      const peer = peerRef.current;
+      navigator.mediaDevices.getUserMedia({
+        audio: true
+      }).then(stream => {
+        const oldAudioTrack = videoStream.current?.getTracks().find(track => track.kind === "audio");
+        const newAudioTrack = stream.getTracks().find(track => track.kind === "audio");
+        if (!newAudioTrack || !oldAudioTrack) return;
+        peer.replaceTrack(oldAudioTrack, newAudioTrack, videoStream.current!);
+        socket.emit("remoteAudioOn", true);
+      })
+    }
+  }, []);
 
   return (
     <div className="h-full w-full">

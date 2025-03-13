@@ -1,17 +1,23 @@
+import { useStore } from "@/contexts/store";
+
 type OutputProps = {
-  text: string;
-  type: "success" | "error";
   roomId: string;
 }
 
-export function Output({ text, type, roomId }: OutputProps) {
+export function Output({ roomId }: OutputProps) {
+  const { outputBuffer } = useStore();
   return (
     <div className="h-full w-full p-4">
-      <pre
-        className={"text-wrap'" + type === "success" ? "" : "text-red-600"}
-      >
-        {`Room:${roomId}`}${"  "}{text}
-      </pre>
+      {
+        outputBuffer.map((output, index) => {
+          return <pre
+            className="text-wrap"
+            key={index}
+          >
+            {`room:${roomId}$ ${output}`}
+          </pre>
+        })
+      }
     </div>
   );
 }

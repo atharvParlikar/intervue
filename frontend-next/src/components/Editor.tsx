@@ -31,7 +31,7 @@ const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
   const yTextRef = useRef<Y.Text | null>(null);
   const syncedRef = useRef<boolean>(false);
   const hostQuery = trpc.verifyHost.useQuery({ roomId });
-  const { code, updateCode } = useStore();
+  const { editorState: code, setEditorState: updateCode } = useStore();
 
   const onUpdate = EditorView.updateListener.of((v) => {
     if (code !== v.state.doc.toString()) {

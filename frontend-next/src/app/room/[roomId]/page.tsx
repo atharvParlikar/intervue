@@ -66,7 +66,7 @@ export default function Room() {
               <ResizablePanel
                 defaultSize={60}
               >
-                <Output roomId={roomId} text="something fucked man!!!" type="error" />
+                <Output roomId={roomId} />
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={40}>

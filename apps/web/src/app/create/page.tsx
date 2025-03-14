@@ -2,7 +2,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
@@ -10,7 +10,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import VideoWithControlsLocal from "@/components/VideoWithControlsLocal";
 import { useVideoStream } from "@/hooks/useVideoStream";
-import { useStore } from "@/contexts/store";
 
 export default function Page() {
   const { videoRef, streamOn, stopTrack } = useVideoStream();

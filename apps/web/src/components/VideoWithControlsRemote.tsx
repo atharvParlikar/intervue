@@ -1,4 +1,4 @@
-import { RefObject, useEffect } from "react";
+import { RefObject } from "react";
 import { useStore } from "@/contexts/store";
 import { Button } from "./ui/button";
 import { CameraOff, MicOff } from "lucide-react";

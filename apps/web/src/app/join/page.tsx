@@ -7,7 +7,7 @@ import VideoWithControlsLocal from "@/components/VideoWithControlsLocal";
 import { useStore } from "@/contexts/store";
 import { useVideoStream } from "@/hooks/useVideoStream";
 import { getSocket } from "@/lib/socketChannel";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export default function Page() {
   const { wsReady } = useStore();

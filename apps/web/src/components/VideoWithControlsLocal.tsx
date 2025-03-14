@@ -20,7 +20,6 @@ const VideoWithControlsLocal = ({
   videoRef,
   streamOn = true,
   stopTrack,
-  selfVideo = false,
   muted = true,
 }: VideoComponentProps) => {
   const { cameraOn, setCameraOn, micOn, setMicOn } = useStore();

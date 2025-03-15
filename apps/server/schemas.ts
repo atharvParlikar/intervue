@@ -66,4 +66,4 @@ const WebRTCConnection = mongoose.model<IWebRTCConnection>(
   connectionSchema,
 );
 
-export { Room, RoomsInverse };
+export type { Room, RoomsInverse };

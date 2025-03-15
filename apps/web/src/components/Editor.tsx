@@ -69,7 +69,7 @@ const Editor: React.FC<EditorProps> = ({ roomId, initialDocValue }) => {
       extensions: [
         dracula,
         basicSetup,
-        keymap.of([defaultKeymap, indentWithTab]),
+        keymap.of([...defaultKeymap, indentWithTab]),
         python(),
         onUpdate,
         yCollab(yText, provider.awareness, { undoManager }),

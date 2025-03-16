@@ -27,7 +27,7 @@ const server = new http.Server(app);
 
 export const io = new Server(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: process.env.CLIENT_URL,
     methods: ["GET", "POST"],
   },
   transports: ["websocket", "polling"],
@@ -513,6 +513,11 @@ export const appRouter = router({
 
       return { success: true };
     }),
+
+  ping: publicProcedure
+    .query(() => {
+      return { message: "Hello there" }
+    })
 });
 
 export type AppRouter = typeof appRouter;

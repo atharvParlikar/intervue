@@ -27,7 +27,7 @@ const server = new http.Server(app);
 
 export const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL,
+    origin: "*",
     methods: ["GET", "POST"],
   },
   transports: ["websocket", "polling"],
@@ -461,6 +461,15 @@ export const appRouter = router({
 
       try {
         const { stdout, stderr } = await executeInDocker(code, TIMEOUT_MS);
+
+        const participantSocketId = room.participant?.socketId;
+
+        if (participantSocketId) {
+          io.to(participantSocketId).emit("output", {
+            stdout, stderr
+          });
+        }
+
         return {
           stdout,
           stderr

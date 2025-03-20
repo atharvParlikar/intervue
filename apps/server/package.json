@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "dev": "nodemon --exec ts-node index-trpc.ts --watch",
+    "dev": "nodemon --exec ts-node index-trpc.ts --watch && bun signaling-server.js",
     "socket": "nodemon --exec ts-node socket-server.ts --watch",
     "signaling": "node signaling-server.js",
     "generate:types": "bun ./scripts/generate-types.ts",

@@ -8,6 +8,8 @@ export const useVideoStream = (local: useVideoStreamArgs = true) => {
   const [streamOn, setStreamOn] = useState(false);
   const videoNode = useRef<HTMLVideoElement | null>(null);
   const { cameraOn, setCameraOn, micOn, setMicOn } = useStore();
+  const [videoDevices, setVideoDevices] = useState<Record<string, string>>({});
+  const [audioDevices, setAudioDevices] = useState<Record<string, string>>({});
 
   const stopTrack = ({ video, audio }: { video?: boolean; audio?: boolean }) => {
     console.log('stopTrack called');
@@ -43,6 +45,22 @@ export const useVideoStream = (local: useVideoStreamArgs = true) => {
       }
     };
 
+    const setupStreamDevices = async () => {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(deviceInfo => deviceInfo.kind === "videoinput");
+      const audioDevices = devices.filter(deviceInfo => deviceInfo.kind === "audioinput");
+
+      const videoDeviceObject = Object.fromEntries(
+        videoDevices.map(device => [device.deviceId, device.label])
+      );
+      const audioDeviceObject = Object.fromEntries(
+        audioDevices.map(device => [device.deviceId, device.label])
+      );
+
+      setVideoDevices(videoDeviceObject);
+      setAudioDevices(audioDeviceObject);
+    }
+
     setupStreams();
   }, []);
 
@@ -77,5 +95,5 @@ export const useVideoStream = (local: useVideoStreamArgs = true) => {
     }
   }, [micOn]);
 
-  return { videoStream, streamOn, videoRef, stopTrack };
+  return { videoStream, streamOn, videoRef, stopTrack, audioDevices, videoDevices };
 };

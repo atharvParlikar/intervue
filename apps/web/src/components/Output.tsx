@@ -28,12 +28,14 @@ export function Output({ roomId }: OutputProps) {
     <div className="h-full w-full p-4">
       {
         outputBuffer.map((output, index) => {
-          return <pre
-            className="text-wrap"
-            key={index}
-          >
-            {`room:${roomId}$ ${output}`}
-          </pre>
+          return (
+            <pre
+              className="text-wrap"
+              key={index}
+            >
+              {`room:${roomId}$ ${output}`}
+            </pre>
+          );
         })
       }
     </div>

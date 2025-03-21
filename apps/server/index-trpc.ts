@@ -21,7 +21,13 @@ configDotenv();
 const PORT = 8000;
 
 const app = express();
-app.use(cors());
+
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+  // No CORS on prod cuz nginx having CORS already will cause double CORS errors.
+} else {
+  app.use(cors());
+}
 
 const server = new http.Server(app);
 
